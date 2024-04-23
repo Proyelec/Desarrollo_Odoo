@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data> 
+    <!-- Supplier Receipt Form  -->
+        <record id="view_account_payment_group_form" model="ir.ui.view">
+            <field name="name">account.payment.group.form</field>
+            <field name="model">account.payment.group</field>
+            <field name="inherit_id" ref="account_payment_group.view_account_payment_group_form"/>
+            <field name="arch" type="xml">
+                <form>
+                    <field name="partner_regimen_islr_ids" invisible="1"/>
+                </form>
+                <field name="communication" position="after">
+                    <field name="iva"/>
+                    <field name="islr" invisible = "partner_regimen_islr_ids == []"/>
+                    <field 
+                        name="regimen_islr_id" 
+                        invisible="islr != True" 
+                        required = "islr != False and (state in ['draft', 'confirmed'])" 
+                        domain="[('id', 'in', partner_regimen_islr_ids)]" 
+                        options='{"no_open": True, "no_create": True}'/>                        
+                </field>
+                <field name="selected_debt" position="replace">
+                    <field name="debt_multicurrency" invisible="1"/>
+                    <field name="selected_debt_currency_id" invisible="1" />
+                    <field 
+                        name="selected_debt" 
+                        invisible="state not in ['draft', 'confirmed']" 
+                        options="{'currency_field': 'currency_id'}"/>
+                    <field 
+                        name="selected_finacial_debt" 
+                        invisible="debt_multicurrency ==  False or  (state not in ['draft', 'confirmed'])" 
+                        options="{'currency_field': 'currency_id'}"/>
+                    <field 
+                        name="selected_finacial_debt_currency" 
+                        invisible="debt_multicurrency ==  False or  (state not in ['draft', 'confirmed'])" 
+                        options="{'currency_field': 'selected_debt_currency_id'}"/>
+                </field>
+
+                <xpath expr="//button[@name='compute_withholdings']" position="replace">
+                    
+                    <button name="compute_withholdings" string="Calcular Retenciones" type="object" confirm="El computar la retención realizara un solo registro por la factura correspondiente, para ello solo puede pagar una factura a la vez." invisible="(state not in ['draft', 'confirmed'] or partner_type != 'supplier' or iva ==False) and (state not in ['draft', 'confirmed'] or partner_type != 'supplier' or islr ==False)"/>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>
