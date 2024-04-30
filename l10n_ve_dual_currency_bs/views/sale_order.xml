@@ -95,19 +95,11 @@
                     
                     <field name="price_unit_bs" 
                     readonly = "qty_invoiced &gt; 0"
-<<<<<<< Updated upstream
                     options="{'currency_field': 'sale_id.currency_ref_id', 'field_digits': True}"/>
                 </xpath>
 
                 <xpath expr="//field[@name = 'order_line']//tree/field[@name = 'price_subtotal']" position="before">
                      <field name="subtoal_amount_bs"  options="{'currency_field': 'sale_id.currency_ref_id', 'field_digits': True}"/>
-=======
-                    options="{'currency_field': 'sale_id.currency_ref_id', 'field_digits': True}" optional="hide"/>
-                </xpath>
-
-                <xpath expr="//field[@name = 'order_line']//tree/field[@name = 'price_subtotal']" position="before">
-                     <field name="subtoal_amount_bs"  options="{'currency_field': 'sale_id.currency_ref_id', 'field_digits': True}" optional="hide"/>
->>>>>>> Stashed changes
                 </xpath>
 
 
