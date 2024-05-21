@@ -160,7 +160,7 @@ class AccountReportCXP(models.TransientModel):
             
             return {
                 'type': 'ir.actions.act_window',
-                'res_model': 'account.invoice.report.cxc',
+                'res_model': 'account.invoice.report.cxp',
                 'view_mode': 'form',
                 'view_type': 'form',
                 'res_id': self.id,
