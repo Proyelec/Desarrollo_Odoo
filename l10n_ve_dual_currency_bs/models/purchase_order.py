@@ -153,7 +153,7 @@ class InheritPurchaseOrderLine(models.Model):
         digits='Product Price',
         store=True, 
         readonly=False, 
-        required=True,
+        required=False,
         precompute=True
     )
     subtoal_amount_bs = fields.Monetary(
