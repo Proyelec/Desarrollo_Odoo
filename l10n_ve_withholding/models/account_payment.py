@@ -82,7 +82,7 @@ class AccountPayment(models.Model):
     
     
     def action_report_withholding_certificate(self):
-        report_action = self.env.ref('l10n_ve_withholding.action_report_withholding_certificate_iva').report_action(self)
+        report_action = self.env.ref('l10n_ve_withholding.action_report_withholding_certificate').report_action(self)
         return report_action
     
     
