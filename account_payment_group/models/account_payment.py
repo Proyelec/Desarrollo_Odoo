@@ -13,7 +13,6 @@ class AccountPayment(models.Model):
         'account.tax',
         string='Withholding Tax',
         readonly=False,
-
     )
     withholding_number = fields.Char(
         readonly=False,
@@ -25,6 +24,21 @@ class AccountPayment(models.Model):
         readonly=True,
         states={'draft': [('readonly', False)]},
     )
+
+    withholding_base_amount_bs = fields.Monetary(
+        string='Withholding Base Amount (Bs)',
+        compute='_compute_withholding_base_amount_bs',
+        readonly=True,
+        currency_field='company_currency_id',
+    )
+
+    def _compute_withholding_base_amount_bs(self):
+        for record in self:
+            if record.currency_id != record.company_currency_id:
+                record.withholding_base_amount_bs = record.currency_id._convert(
+                    record.withholding_base_amount, record.company_currency_id, record.company_id, record.date)
+            else:
+                record.withholding_base_amount_bs = record.withholding_base_amount
 
     def _get_valid_liquidity_accounts(self):
         res = super()._get_valid_liquidity_accounts()
