@@ -1,175 +1,277 @@
-##############################################################################
-# For copyright and license notices, see __manifest__.py file in module root
-# directory
-##############################################################################
+# © 2016 ADHOC SA
+# License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
+
 from odoo import models, fields, api, _
-from odoo.exceptions import UserError
+from odoo.exceptions import ValidationError
+
 import logging
+_logger = logging.getLogger(__name__)
+
 
 class AccountPayment(models.Model):
     _inherit = "account.payment"
 
-    tax_withholding_id = fields.Many2one(
-        'account.tax',
-        string='Withholding Tax',
-        readonly=False,
-    )
-    withholding_number = fields.Char(
-        readonly=False,
-        help="If you don't set a number we will add a number automatically "
-        "from a sequence that should be configured on the Withholding Tax"
-    )
-    withholding_base_amount = fields.Monetary(
-        string='Withholding Base Amount',
+    payment_group_id = fields.Many2one(
+        'account.payment.group',
+        'Payment Group',
         readonly=True,
-        states={'draft': [('readonly', False)]},
     )
-    withholding_base_amount_bs = fields.Monetary(
-        string='Withholding Base Amount (Bs)',
-        compute='_compute_withholding_base_amount_bs',
-        readonly=True,
+    amount_company_currency = fields.Monetary(
+        string='Amount on Company Currency',
+        compute='_compute_amount_company_currency',
+        inverse='_inverse_amount_company_currency',
         currency_field='company_currency_id',
+        readonly=False,  # Remover readonly para que no sea solo lectura
     )
-    withholding_tax_amount_bs = fields.Monetary(
-        string='Withholding Tax Amount (Bs)',
-        compute='_compute_withholding_tax_amount_bs',
-        readonly=True,
-        currency_field='company_currency_id',
+    other_currency = fields.Boolean(
+        compute='_compute_other_currency',
     )
-    withholding_total_amount_bs = fields.Monetary(
-        string='Total Withholding Amount (Bs)',
-        compute='_compute_withholding_total_amount_bs',
-        readonly=True,
+    force_amount_company_currency = fields.Monetary(
+        string='Forced Amount on Company Currency',
         currency_field='company_currency_id',
+        copy=False,
+    )
+    exchange_rate = fields.Float(
+        string='Exchange Rate',
+        compute='_compute_exchange_rate',
+        # readonly=False,
+        # inverse='_inverse_exchange_rate',
+        digits=(16, 4),
+    )
+    l10n_ar_amount_company_currency_signed = fields.Monetary(
+        currency_field='company_currency_id', compute='_compute_l10n_ar_amount_company_currency_signed')
+    # campo a ser extendido y mostrar un nombre detemrinado en las lineas de
+    # pago de un payment group o donde se desee (por ej. con cheque, retención,
+    # etc)
+    payment_method_description = fields.Char(
+        compute='_compute_payment_method_description',
+        string='Payment Method Desc.',
+    )
+    available_journal_ids = fields.Many2many(
+        comodel_name='account.journal',
+        compute='_compute_available_journal_ids'
     )
 
-    @api.depends('withholding_base_amount', 'move_id.tax_day')
-    def _compute_withholding_base_amount_bs(self):
-        for record in self:
-            if record.withholding_base_amount and record.move_id:
-                record.withholding_base_amount_bs = record.withholding_base_amount * record.move_id.tax_day
+    label_journal_id = fields.Char(
+        compute='_compute_label'
+    )
+
+    label_destination_journal_id = fields.Char(
+        compute='_compute_label'
+    )
+
+    @api.depends('payment_type', 'payment_group_id')
+    def _compute_available_journal_ids(self):
+        """
+        Este metodo odoo lo agrega en v16
+        Igualmente nosotros lo modificamos acá para que funcione con esta logica:
+        a) desde transferencias permitir elegir cualquier diario ya que no se selecciona compañía
+        b) desde grupos de pagos solo permitir elegir diarios de la misma compañía
+        NOTA: como ademas estamos mandando en el contexto del company_id, tal vez podriamos evitar pisar este metodo
+        y ande bien en v16 para que las lineas de pago de un payment group usen la compañia correspondiente, pero
+        lo que faltaria es hacer posible en las transferencias seleccionar una compañia distinta a la por defecto
+        """
+        journals = self.env['account.journal'].search([
+            ('company_id', 'in', self.env.companies.ids), ('type', 'in', ('bank', 'cash'))
+        ])
+        for pay in self:
+            filtered_domain = [('inbound_payment_method_line_ids', '!=', False)] if \
+                pay.payment_type == 'inbound' else [('outbound_payment_method_line_ids', '!=', False)]
+            if pay.payment_group_id:
+                filtered_domain.append(('company_id', '=', pay.payment_group_id.company_id.id))
+            pay.available_journal_ids = journals.filtered_domain(filtered_domain)
+
+
+
+    @api.depends('payment_method_id')
+    def _compute_payment_method_description(self):
+        for rec in self:
+            rec.payment_method_description = rec.payment_method_id.display_name
+
+    @api.depends('amount_company_currency', 'payment_type')
+    def _compute_l10n_ar_amount_company_currency_signed(self):
+        """ new field similar to amount_company_currency_signed but:
+        1. is positive for payments to suppliers
+        2. we use the new field amount_company_currency instead of amount_total_signed, because amount_total_signed is
+        computed only after saving
+        We use l10n_ar prefix because this is a pseudo backport of future l10n_ar_withholding module """
+        for payment in self:
+            if payment.payment_type == 'outbound' and payment.partner_type == 'customer' or \
+                    payment.payment_type == 'inbound' and payment.partner_type == 'supplier':
+                payment.l10n_ar_amount_company_currency_signed = -payment.amount_company_currency
             else:
-                record.withholding_base_amount_bs = 0.0
+                payment.l10n_ar_amount_company_currency_signed = payment.amount_company_currency
 
-    @api.depends('withholding_base_amount_bs', 'tax_withholding_id')
-    def _compute_withholding_tax_amount_bs(self):
-        for record in self:
-            if record.tax_withholding_id and record.withholding_base_amount_bs:
-                record.withholding_tax_amount_bs = record.withholding_base_amount_bs * (record.tax_withholding_id.amount / 100)
+    @api.depends('currency_id')
+    def _compute_other_currency(self):
+        for rec in self:
+            rec.other_currency = False
+            if rec.company_currency_id and rec.currency_id and \
+               rec.company_currency_id != rec.currency_id:
+                rec.other_currency = True
+
+    @api.onchange('payment_group_id')
+    def onchange_payment_group_id(self):
+        # now we change this according when use save & new the context from the payment was erased and we need to use some data.
+        # this change is due this odoo change https://github.com/odoo/odoo/commit/c14b17c4855fd296fd804a45eab02b6d3566bb7a
+        if self.payment_group_id:
+            self.date = self.payment_group_id.payment_date
+            self.partner_type = self.payment_group_id.partner_type
+            self.partner_id = self.payment_group_id.partner_id
+            self.payment_type = 'inbound' if self.payment_group_id.partner_type  == 'customer' else 'outbound'
+            self.amount = self.payment_group_id.payment_difference
+
+    @api.depends('amount', 'other_currency', 'amount_company_currency')
+    def _compute_exchange_rate(self):
+        for rec in self:
+            if rec.other_currency:
+                rec.exchange_rate = rec.amount and (
+                    rec.amount_company_currency / rec.amount) or 0.0
             else:
-                record.withholding_tax_amount_bs = 0.0
+                rec.exchange_rate = False
 
-    @api.depends('withholding_tax_amount_bs')
-    def _compute_withholding_total_amount_bs(self):
-        for record in self:
-            record.withholding_total_amount_bs = record.withholding_tax_amount_bs
+    # this onchange is necesary because odoo, sometimes, re-compute
+    # and overwrites amount_company_currency. That happends due to an issue
+    # with rounding of amount field (amount field is not change but due to
+    # rouding odoo believes amount has changed)
+    @api.onchange('amount_company_currency')
+    def _inverse_amount_company_currency(self):
 
-    def _get_valid_liquidity_accounts(self):
-        res = super()._get_valid_liquidity_accounts()
-        if self.tax_withholding_id:
-            logging.info(res)
-            domain_id = [id.id for id in res]
-            logging.info(domain_id)
-            rep_lines = self.env['account.tax.repartition.line'].search(
-                [
-                    ('company_id', '=', self.company_id.id),
-                    ('tax_id.type_tax_use', 'in', ['supplier', 'customer']),
-                ])
-            if rep_lines:
-                for ac in rep_lines:
-                    domain_id.append(ac.account_id.id)
-            logging.info(rep_lines.mapped('account_id'))
-            logging.info(domain_id)
-            account_ids = self.env['account.account'].browse(domain_id)
-            return account_ids
+        for rec in self:
+            if rec.other_currency and rec.amount_company_currency != \
+                    rec.currency_id._convert(
+                        rec.amount, rec.company_id.currency_id,
+                        rec.company_id, rec.date):
+                force_amount_company_currency = rec.amount_company_currency
+            else:
+                force_amount_company_currency = False
+            rec.force_amount_company_currency = force_amount_company_currency
 
-        return res
+    @api.depends('amount', 'other_currency', 'force_amount_company_currency')
+    def _compute_amount_company_currency(self):
+        """
+        * Si las monedas son iguales devuelve 1
+        * si no, si hay force_amount_company_currency, devuelve ese valor
+        * sino, devuelve el amount convertido a la moneda de la cia
+        """
+        for rec in self:
+            if not rec.other_currency:
+                amount_company_currency = rec.amount
+            elif rec.force_amount_company_currency:
+                amount_company_currency = rec.force_amount_company_currency
+            else:
+                amount_company_currency = rec.currency_id._convert(
+                    rec.amount, rec.company_id.currency_id,
+                    rec.company_id, rec.date)
+            rec.amount_company_currency = amount_company_currency
 
-    def action_post(self):
-        without_number = self.filtered(
-            lambda x: x.tax_withholding_id and not x.withholding_number)
-
-        without_sequence = without_number.filtered(
-            lambda x: not x.tax_withholding_id.withholding_sequence_id)
-        if without_sequence:
-            raise UserError(_(
-                'No puede validar pagos con retenciones que no tengan número '
-                'de retención. Recomendamos agregar una secuencia a los '
-                'impuestos de retención correspondientes. Id de pagos: %s') % (
-                without_sequence.ids))
-
-        # a los que tienen secuencia les setamos el numero desde secuencia
-        for payment in (without_number - without_sequence):
-            payment.withholding_number = \
-                payment.tax_withholding_id.withholding_sequence_id.next_by_id()
-
-        # en los apuntes de retenciones necesitamos que quede tax_line_id vinculado para poder hacer liquidaciones
-        # de impuestos. Anteriormente pasabamos el tax_repartition_line_id en _prepare_move_line_default_vals
-        # pero ahora nos da un error porque _sync_unbalanced_lines hace line_ids.filtered('tax_line_id').unlink()
-        # y termina modificando el asiento. El cambio anterior funcionaba en algunos casos pero no en otros.
-        # Hacemos este parche feo total deberia ser solo por v16 ya que en v17 lo pondriamos nativo en odoo.
-        # Basicamente escribimos el dato luego de validar el payment (lo escribimos con ._write porque write hace
-        # unos chequeos y resetea). Ademas luego al pasar a borrador limpiamos el dato para no tener el mismo error.
-        res = super(AccountPayment, self).action_post()
-        withholdings = self.filtered(lambda x: x.tax_withholding_id)
-        for withholding in withholdings:
-            liquidity_lines, counterpart_lines, writeoff_lines = withholding._seek_for_lines()
-            rep_line = withholding._get_withholding_repartition_line()
-            liquidity_lines.tax_repartition_line_id = rep_line
-            liquidity_lines.tax_line_id = rep_line.tax_id
-        return res
-
-    def action_draft(self):
-        ''' posted -> draft '''
-        withholdings = self.filtered(lambda x: x.tax_withholding_id)
-        for withholding in withholdings:
-            # no podemos llamar a action_draft sin hacer esto porque action_draft termina llamando a
-            # move_id.button_draft y eso genera recomputo de lineas porque hay tax_ids involucrados. Es recomputo
-            # genera cambios no compatibles con un pago.
-            # por eso antes de llamar a super tenemos que borrar toda la info de impuestos
-            liquidity_lines, counterpart_lines, writeoff_lines = withholding._seek_for_lines()
-            # antes de poder hacer el write hacemos este hack para poder pasar esta constraint
-            # https://github.com/odoo/odoo/blob/b03d4c643647/addons/account/models/account_move_line.py#L1416
-            liquidity_lines.parent_state = 'draft'
-            liquidity_lines.write({
-                'tax_repartition_line_id': False,
-                'tax_line_id': False,
+    @api.model_create_multi
+    def create(self, vals_list):
+        """ If a payment is created from anywhere else we create the payment group in top """
+        logging.info("ANTES DE CREAR")
+        recs = super().create(vals_list)
+        logging.info("DEPUES DE CREAR")
+        if self._context.get('avoid_create_payment_group'):
+            return recs
+        for rec in recs.filtered(lambda x: not x.payment_group_id and not x.is_internal_transfer).with_context(
+                created_automatically=True):
+            if not rec.partner_id:
+                raise ValidationError(_(
+                    'Manual payments should not be created manually but created from Customer Receipts / Supplier Payments menus'))
+            rec.payment_group_id = rec.env['account.payment.group'].create({
+                'company_id': rec.company_id.id,
+                'partner_type': rec.partner_type,
+                'partner_id': rec.partner_id.id,
+                'payment_date': rec.date,
+                'communication': rec.ref,
             })
-        return super().action_draft()
+            rec.payment_group_id.post()
+        return recs
 
-    def _get_withholding_repartition_line(self):
+    @api.depends('payment_group_id')
+    def _compute_destination_account_id(self):
+        """
+        If we are paying a payment gorup with paylines, we use account
+        of lines that are going to be paid
+        """
+        for rec in self:
+            to_pay_account = rec.payment_group_id.to_pay_move_line_ids.mapped(
+                'account_id')
+            if len(to_pay_account) > 1:
+                raise ValidationError(_(
+                    'To Pay Lines must be of the same account!'))
+            elif len(to_pay_account) == 1:
+                rec.destination_account_id = to_pay_account[0]
+            else:
+                super(AccountPayment, rec)._compute_destination_account_id()
+
+    def show_details(self):
+        """
+        Metodo para mostrar form editable de payment, principalmente para ser
+        usado cuando hacemos ajustes y el payment group esta confirmado pero
+        queremos editar una linea
+        """
+        return {
+            'name': _('Payment Lines'),
+            'type': 'ir.actions.act_window',
+            'view_type': 'form',
+            'view_mode': 'form',
+            'python'
+        'res_model': 'account.payment',
+            'target': 'new',
+            'res_id': self.id,
+            'context': self._context,
+        }
+
+    def button_open_payment_group(self):
         self.ensure_one()
-        if ((self.partner_type == 'customer' and self.payment_type == 'inbound') or
-                (self.partner_type == 'supplier' and self.payment_type == 'outbound')):
-            rep_field = 'invoice_repartition_line_ids'
-        else:
-            rep_field = 'refund_repartition_line_ids'
-        rep_line = self.tax_withholding_id[rep_field].filtered(lambda x: x.repartition_type == 'tax')
-        if len(rep_line) != 1:
-            raise UserError(
-                'En los impuestos de retención debe haber una línea de repartición de tipo tax para pagos y otra'
-                'para reembolsos')
-        logging.info("======================TEST=================")
-        logging.info(rep_line)
-        logging.info(rep_line.display_name)
-        logging.info(rep_line.tax_id)
-        if not rep_line.account_id:
-            raise UserError(_('The tax %s dont have account configured on the tax repartition line') % (
-                rep_line.tax_id.name))
-        return rep_line
+        return self.payment_group_id.get_formview_action()
 
     def _prepare_move_line_default_vals(self, write_off_line_vals=None, force_balance=None):
         res = super()._prepare_move_line_default_vals(write_off_line_vals=write_off_line_vals, force_balance=force_balance)
-
-        if self.payment_method_code == 'withholding':
-            if self.payment_type == 'transfer':
-                raise UserError(_('You can not use withholdings on transfers!'))
-            rep_line = self._get_withholding_repartition_line()
-            res[0]['name'] = self.withholding_number or '/'
-            res[0]['account_id'] = rep_line.account_id.id
+        if self.force_amount_company_currency:
+            difference = self.force_amount_company_currency - res[0]['credit'] - res[0]['debit']
+            if res[0]['credit']:
+                liquidity_field = 'credit'
+                counterpart_field = 'debit'
+            else:
+                liquidity_field = 'debit'
+                counterpart_field = 'credit'
+            res[0].update({
+                liquidity_field: self.force_amount_company_currency,
+            })
+            res[1].update({
+                counterpart_field: res[1][counterpart_field] + difference,
+            })
         return res
 
     @api.model
-    def _get_trigger_fields_to_synchronize(self):
-        res = super()._get_trigger_fields_to_synchronize()
-        return res + ('withholding_number', 'tax_withholding_id')
+    def _get_trigger_fields_to_sincronize(self):
+        res = super()._get_trigger_fields_to_sincronize()
+        return res + ('force_amount_company_currency',)
+
+    @api.depends_context('default_is_internal_transfer')
+    def _compute_is_internal_transfer(self):
+        """ Este campo se recomputa cada vez que cambia un diario y queda en False porque el segundo diario no va a
+        estar completado. Como nosotros tenemos un menú especifico para poder registrar las transferencias internas,
+        entonces si estamos en este menu siempre es transferencia interna"""
+        if self._context.get('default_is_internal_transfer'):
+            self.is_internal_transfer = True
+        else:
+            return super()._compute_is_internal_transfer()
+
+    def _create_paired_internal_transfer_payment(self):
+        for rec in self:
+            super(AccountPayment, rec.with_context(
+                default_force_amount_company_currency=rec.force_amount_company_currency
+            ))._create_paired_internal_transfer_payment()
+
+    @api.onchange("payment_type")
+    def _compute_label(self):
+        for rec in self:
+            if (rec.payment_type == "outbound"):
+                rec.label_journal_id = "Diario de origen"
+                rec.label_destination_journal_id = "Diario de destino"
+            else:
+                rec.label_journal_id = "Diario de destino"
+                rec.label_destination_journal_id = "Diario de origen"
