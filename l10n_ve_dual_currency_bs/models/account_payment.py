@@ -56,7 +56,7 @@ class accountPaymnent(models.Model):
                         round(payment.amount,3) * round(payment.tax_day,3),3)
                 else:
                     payment.amount_total_bs = round(
-                        round(payment.amount_company_currency,3) * round(payment.tax_day,3),3) 
+                        round(1 / payment.amount_company_currency,3) * round((payment.tax_day),3),3) 
 
             else :
                 payment.amount_total_bs = 0.000

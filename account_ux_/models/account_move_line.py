@@ -46,16 +46,31 @@ class AccountMoveLine(models.Model):
         """
 
         def get_accounting_rate(vals):
-            if company_currency.is_zero(vals['balance']) or vals['currency'].is_zero(vals['amount_currency']):
+            if 'balance' not in vals or 'currency' not in vals or company_currency.is_zero(vals['balance']) or vals['currency'].is_zero(vals['amount_currency']):
                 return 0.0
             else:
                 return abs(vals['amount_currency']) / abs(vals['balance'])
 
         logging.info(debit_vals)
+        logging.info(credit_vals)
+        
+        if 'company' not in debit_vals:
+            logging.error('Missing company in debit_vals: %s', debit_vals)
+            raise KeyError('Missing company in debit_vals')
+
+        if 'company' not in credit_vals:
+            logging.error('Missing company in credit_vals: %s', credit_vals)
+            raise KeyError('Missing company in credit_vals')
+        
         company_currency = debit_vals['company'].currency_id
-        reconcile_on_company_currency = debit_vals['company'].reconcile_on_company_currency and \
-            (debit_vals['currency'] != company_currency or credit_vals['currency'] != company_currency) and \
+        
+        reconcile_on_company_currency = (
+            'company' in debit_vals and
+            debit_vals['company'].reconcile_on_company_currency and
+            (debit_vals['currency'] != company_currency or credit_vals['currency'] != company_currency) and
             not debit_vals['record'].account_id.currency_id
+        )
+        
         if reconcile_on_company_currency:
             if debit_vals['currency'] != debit_vals['company'].currency_id:
                 debit_vals['original_currency'] = debit_vals['currency']
@@ -67,7 +82,8 @@ class AccountMoveLine(models.Model):
                 credit_vals['original_amount_residual_currency'] = credit_vals['amount_residual_currency']
                 credit_vals['currency'] = credit_vals['company'].currency_id
                 credit_vals['amount_residual_currency'] = credit_vals['amount_residual']
-        res = super()._prepare_reconciliation_single_partial(debit_vals, credit_vals,shadowed_aml_values)
+        
+        res = super()._prepare_reconciliation_single_partial(debit_vals, credit_vals, shadowed_aml_values)
 
         if reconcile_on_company_currency and 'partial_vals' in res:
             if 'original_currency' in credit_vals:
@@ -80,6 +96,7 @@ class AccountMoveLine(models.Model):
                 rate = get_accounting_rate(debit_vals)
                 res['partial_vals']['debit_amount_currency'] = credit_vals['currency'].round(
                     res['partial_vals']['debit_amount_currency'] * rate)
+        
         return res
 
     def _compute_amount_residual(self):

@@ -21,6 +21,7 @@ class AccountPayment(models.Model):
         compute='_compute_amount_company_currency',
         inverse='_inverse_amount_company_currency',
         currency_field='company_currency_id',
+        readonly=False,  # Remover readonly para que no sea solo lectura
     )
     other_currency = fields.Boolean(
         compute='_compute_other_currency',
@@ -215,7 +216,8 @@ class AccountPayment(models.Model):
             'type': 'ir.actions.act_window',
             'view_type': 'form',
             'view_mode': 'form',
-            'res_model': 'account.payment',
+            'python'
+        'res_model': 'account.payment',
             'target': 'new',
             'res_id': self.id,
             'context': self._context,
@@ -225,7 +227,7 @@ class AccountPayment(models.Model):
         self.ensure_one()
         return self.payment_group_id.get_formview_action()
 
-    def _prepare_move_line_default_vals(self, write_off_line_vals=None,force_balance=None):
+    def _prepare_move_line_default_vals(self, write_off_line_vals=None, force_balance=None):
         res = super()._prepare_move_line_default_vals(write_off_line_vals=write_off_line_vals, force_balance=force_balance)
         if self.force_amount_company_currency:
             difference = self.force_amount_company_currency - res[0]['credit'] - res[0]['debit']
@@ -267,7 +269,7 @@ class AccountPayment(models.Model):
     @api.onchange("payment_type")
     def _compute_label(self):
         for rec in self:
-            if rec.payment_type == "outbound":
+            if (rec.payment_type == "outbound"):
                 rec.label_journal_id = "Diario de origen"
                 rec.label_destination_journal_id = "Diario de destino"
             else:

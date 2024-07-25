@@ -29,7 +29,7 @@ class SaleOrder(models.Model):
         digits=(16, 4)
     )
 
-    
+    po_count = fields.Integer(string="PO Count")
     
     test = fields.Float(string="Base Imponible BS.")
    
@@ -142,7 +142,7 @@ class InheritSaleOrder(models.Model):
         #digits='Product Price',
         store=True,
         readonly=False,
-        required=True,
+        required=False,
     )
     
     subtoal_amount_bs = fields.Monetary(

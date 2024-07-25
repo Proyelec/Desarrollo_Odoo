@@ -251,7 +251,7 @@ class InheritMoveLine(models.Model):
         digits='Product Price',
         store=True, 
         readonly=False, 
-        required=True,
+        required=False,
         precompute=True,
     
     )

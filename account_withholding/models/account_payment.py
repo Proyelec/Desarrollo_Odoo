@@ -12,12 +12,10 @@ class AccountPayment(models.Model):
     tax_withholding_id = fields.Many2one(
         'account.tax',
         string='Withholding Tax',
-        readonly=True,
-        states={'draft': [('readonly', False)]},
+        readonly=False,
     )
     withholding_number = fields.Char(
-        readonly=True,
-        states={'draft': [('readonly', False)]},
+        readonly=False,
         help="If you don't set a number we will add a number automatically "
         "from a sequence that should be configured on the Withholding Tax"
     )
@@ -26,6 +24,45 @@ class AccountPayment(models.Model):
         readonly=True,
         states={'draft': [('readonly', False)]},
     )
+    withholding_base_amount_bs = fields.Monetary(
+        string='Withholding Base Amount (Bs)',
+        compute='_compute_withholding_base_amount_bs',
+        readonly=True,
+        currency_field='company_currency_id',
+    )
+    withholding_tax_amount_bs = fields.Monetary(
+        string='Withholding Tax Amount (Bs)',
+        compute='_compute_withholding_tax_amount_bs',
+        readonly=True,
+        currency_field='company_currency_id',
+    )
+    withholding_total_amount_bs = fields.Monetary(
+        string='Total Withholding Amount (Bs)',
+        compute='_compute_withholding_total_amount_bs',
+        readonly=True,
+        currency_field='company_currency_id',
+    )
+
+    @api.depends('withholding_base_amount', 'move_id.tax_day')
+    def _compute_withholding_base_amount_bs(self):
+        for record in self:
+            if record.withholding_base_amount and record.move_id:
+                record.withholding_base_amount_bs = record.withholding_base_amount * record.move_id.tax_day
+            else:
+                record.withholding_base_amount_bs = 0.0
+
+    @api.depends('withholding_base_amount_bs', 'tax_withholding_id')
+    def _compute_withholding_tax_amount_bs(self):
+        for record in self:
+            if record.tax_withholding_id and record.withholding_base_amount_bs:
+                record.withholding_tax_amount_bs = record.withholding_base_amount_bs * (record.tax_withholding_id.amount / 100)
+            else:
+                record.withholding_tax_amount_bs = 0.0
+
+    @api.depends('withholding_tax_amount_bs')
+    def _compute_withholding_total_amount_bs(self):
+        for record in self:
+            record.withholding_total_amount_bs = record.withholding_tax_amount_bs
 
     def _get_valid_liquidity_accounts(self):
         res = super()._get_valid_liquidity_accounts()
@@ -121,7 +158,7 @@ class AccountPayment(models.Model):
                 rep_line.tax_id.name))
         return rep_line
 
-    def _prepare_move_line_default_vals(self, write_off_line_vals=None,force_balance=None):
+    def _prepare_move_line_default_vals(self, write_off_line_vals=None, force_balance=None):
         res = super()._prepare_move_line_default_vals(write_off_line_vals=write_off_line_vals, force_balance=force_balance)
 
         if self.payment_method_code == 'withholding':
