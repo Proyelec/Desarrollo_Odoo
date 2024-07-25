@@ -1,8 +1,12 @@
+# © 2016 ADHOC SA
+# License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
+
 from odoo import models, fields, api, _
 from odoo.exceptions import ValidationError
-import logging
 
+import logging
 _logger = logging.getLogger(__name__)
+
 
 class AccountPayment(models.Model):
     _inherit = "account.payment"
@@ -17,7 +21,7 @@ class AccountPayment(models.Model):
         compute='_compute_amount_company_currency',
         inverse='_inverse_amount_company_currency',
         currency_field='company_currency_id',
-        readonly=False,
+        readonly=False,  # Remover readonly para que no sea solo lectura
     )
     other_currency = fields.Boolean(
         compute='_compute_other_currency',
@@ -30,12 +34,15 @@ class AccountPayment(models.Model):
     exchange_rate = fields.Float(
         string='Exchange Rate',
         compute='_compute_exchange_rate',
+        # readonly=False,
+        # inverse='_inverse_exchange_rate',
         digits=(16, 4),
     )
     l10n_ar_amount_company_currency_signed = fields.Monetary(
-        currency_field='company_currency_id', 
-        compute='_compute_l10n_ar_amount_company_currency_signed'
-    )
+        currency_field='company_currency_id', compute='_compute_l10n_ar_amount_company_currency_signed')
+    # campo a ser extendido y mostrar un nombre detemrinado en las lineas de
+    # pago de un payment group o donde se desee (por ej. con cheque, retención,
+    # etc)
     payment_method_description = fields.Char(
         compute='_compute_payment_method_description',
         string='Payment Method Desc.',
@@ -53,15 +60,19 @@ class AccountPayment(models.Model):
         compute='_compute_label'
     )
 
-    withholding_base_amount_bs = fields.Monetary(
-        compute='_compute_withholding_base_amount_bs'
-    )
-
     @api.depends('payment_type', 'payment_group_id')
     def _compute_available_journal_ids(self):
+        """
+        Este metodo odoo lo agrega en v16
+        Igualmente nosotros lo modificamos acá para que funcione con esta logica:
+        a) desde transferencias permitir elegir cualquier diario ya que no se selecciona compañía
+        b) desde grupos de pagos solo permitir elegir diarios de la misma compañía
+        NOTA: como ademas estamos mandando en el contexto del company_id, tal vez podriamos evitar pisar este metodo
+        y ande bien en v16 para que las lineas de pago de un payment group usen la compañia correspondiente, pero
+        lo que faltaria es hacer posible en las transferencias seleccionar una compañia distinta a la por defecto
+        """
         journals = self.env['account.journal'].search([
-            ('company_id', 'in', self.env.companies.ids), 
-            ('type', 'in', ('bank', 'cash'))
+            ('company_id', 'in', self.env.companies.ids), ('type', 'in', ('bank', 'cash'))
         ])
         for pay in self:
             filtered_domain = [('inbound_payment_method_line_ids', '!=', False)] if \
@@ -70,6 +81,8 @@ class AccountPayment(models.Model):
                 filtered_domain.append(('company_id', '=', pay.payment_group_id.company_id.id))
             pay.available_journal_ids = journals.filtered_domain(filtered_domain)
 
+
+
     @api.depends('payment_method_id')
     def _compute_payment_method_description(self):
         for rec in self:
@@ -77,6 +90,11 @@ class AccountPayment(models.Model):
 
     @api.depends('amount_company_currency', 'payment_type')
     def _compute_l10n_ar_amount_company_currency_signed(self):
+        """ new field similar to amount_company_currency_signed but:
+        1. is positive for payments to suppliers
+        2. we use the new field amount_company_currency instead of amount_total_signed, because amount_total_signed is
+        computed only after saving
+        We use l10n_ar prefix because this is a pseudo backport of future l10n_ar_withholding module """
         for payment in self:
             if payment.payment_type == 'outbound' and payment.partner_type == 'customer' or \
                     payment.payment_type == 'inbound' and payment.partner_type == 'supplier':
@@ -94,6 +112,8 @@ class AccountPayment(models.Model):
 
     @api.onchange('payment_group_id')
     def onchange_payment_group_id(self):
+        # now we change this according when use save & new the context from the payment was erased and we need to use some data.
+        # this change is due this odoo change https://github.com/odoo/odoo/commit/c14b17c4855fd296fd804a45eab02b6d3566bb7a
         if self.payment_group_id:
             self.date = self.payment_group_id.payment_date
             self.partner_type = self.payment_group_id.partner_type
@@ -110,8 +130,13 @@ class AccountPayment(models.Model):
             else:
                 rec.exchange_rate = False
 
+    # this onchange is necesary because odoo, sometimes, re-compute
+    # and overwrites amount_company_currency. That happends due to an issue
+    # with rounding of amount field (amount field is not change but due to
+    # rouding odoo believes amount has changed)
     @api.onchange('amount_company_currency')
     def _inverse_amount_company_currency(self):
+
         for rec in self:
             if rec.other_currency and rec.amount_company_currency != \
                     rec.currency_id._convert(
@@ -124,6 +149,11 @@ class AccountPayment(models.Model):
 
     @api.depends('amount', 'other_currency', 'force_amount_company_currency')
     def _compute_amount_company_currency(self):
+        """
+        * Si las monedas son iguales devuelve 1
+        * si no, si hay force_amount_company_currency, devuelve ese valor
+        * sino, devuelve el amount convertido a la moneda de la cia
+        """
         for rec in self:
             if not rec.other_currency:
                 amount_company_currency = rec.amount
@@ -137,6 +167,7 @@ class AccountPayment(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        """ If a payment is created from anywhere else we create the payment group in top """
         logging.info("ANTES DE CREAR")
         recs = super().create(vals_list)
         logging.info("DEPUES DE CREAR")
@@ -159,6 +190,10 @@ class AccountPayment(models.Model):
 
     @api.depends('payment_group_id')
     def _compute_destination_account_id(self):
+        """
+        If we are paying a payment gorup with paylines, we use account
+        of lines that are going to be paid
+        """
         for rec in self:
             to_pay_account = rec.payment_group_id.to_pay_move_line_ids.mapped(
                 'account_id')
@@ -171,12 +206,18 @@ class AccountPayment(models.Model):
                 super(AccountPayment, rec)._compute_destination_account_id()
 
     def show_details(self):
+        """
+        Metodo para mostrar form editable de payment, principalmente para ser
+        usado cuando hacemos ajustes y el payment group esta confirmado pero
+        queremos editar una linea
+        """
         return {
             'name': _('Payment Lines'),
             'type': 'ir.actions.act_window',
             'view_type': 'form',
             'view_mode': 'form',
-            'res_model': 'account.payment',
+            'python'
+        'res_model': 'account.payment',
             'target': 'new',
             'res_id': self.id,
             'context': self._context,
@@ -211,6 +252,9 @@ class AccountPayment(models.Model):
 
     @api.depends_context('default_is_internal_transfer')
     def _compute_is_internal_transfer(self):
+        """ Este campo se recomputa cada vez que cambia un diario y queda en False porque el segundo diario no va a
+        estar completado. Como nosotros tenemos un menú especifico para poder registrar las transferencias internas,
+        entonces si estamos en este menu siempre es transferencia interna"""
         if self._context.get('default_is_internal_transfer'):
             self.is_internal_transfer = True
         else:
@@ -231,9 +275,3 @@ class AccountPayment(models.Model):
             else:
                 rec.label_journal_id = "Diario de destino"
                 rec.label_destination_journal_id = "Diario de origen"
-
-    @api.depends('other_field1', 'other_field2')  # Reemplaza con campos correctos
-    def _compute_withholding_base_amount_bs(self):
-        for rec in self:
-            # Lógica de cálculo
-            pass
