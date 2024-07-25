@@ -12,30 +12,20 @@ class AccountPayment(models.Model):
     tax_withholding_id = fields.Many2one(
         'account.tax',
         string='Withholding Tax',
-        readonly=False,
+        readonly=True,
+        states={'draft': [('readonly', False)]},
     )
     withholding_number = fields.Char(
-        readonly=False,
+        readonly=True,
+        states={'draft': [('readonly', False)]},
         help="If you don't set a number we will add a number automatically "
-             "from a sequence that should be configured on the Withholding Tax"
+        "from a sequence that should be configured on the Withholding Tax"
     )
     withholding_base_amount = fields.Monetary(
         string='Withholding Base Amount',
         readonly=True,
         states={'draft': [('readonly', False)]},
     )
-    withholding_base_amount_bs = fields.Monetary(
-        string='Withholding Base Amount Bs',
-        compute='_compute_withholding_base_amount_bs'
-    )
-
-    @api.depends('amount', 'currency_id')  # Asegúrate de que estos campos existan en account.payment
-    def _compute_withholding_base_amount_bs(self):
-        for rec in self:
-            if rec.amount and rec.currency_id:
-                rec.withholding_base_amount_bs = rec.amount * rec.currency_id.rate  # Ejemplo de lógica de cálculo
-            else:
-                rec.withholding_base_amount_bs = 0
 
     def _get_valid_liquidity_accounts(self):
         res = super()._get_valid_liquidity_accounts()
@@ -76,6 +66,13 @@ class AccountPayment(models.Model):
             payment.withholding_number = \
                 payment.tax_withholding_id.withholding_sequence_id.next_by_id()
 
+        # en los apuntes de retenciones necesitamos que quede tax_line_id vinculado para poder hacer liquidaciones
+        # de impuestos. Anteriormente pasabamos el tax_repartition_line_id en _prepare_move_line_default_vals
+        # pero ahora nos da un error porque _sync_unbalanced_lines hace line_ids.filtered('tax_line_id').unlink()
+        # y termina modificando el asiento. El cambio anterior funcionaba en algunos casos pero no en otros.
+        # Hacemos este parche feo total deberia ser solo por v16 ya que en v17 lo pondriamos nativo en odoo.
+        # Basicamente escribimos el dato luego de validar el payment (lo escribimos con ._write porque write hace
+        # unos chequeos y resetea). Ademas luego al pasar a borrador limpiamos el dato para no tener el mismo error.
         res = super(AccountPayment, self).action_post()
         withholdings = self.filtered(lambda x: x.tax_withholding_id)
         for withholding in withholdings:
@@ -89,7 +86,13 @@ class AccountPayment(models.Model):
         ''' posted -> draft '''
         withholdings = self.filtered(lambda x: x.tax_withholding_id)
         for withholding in withholdings:
+            # no podemos llamar a action_draft sin hacer esto porque action_draft termina llamando a
+            # move_id.button_draft y eso genera recomputo de lineas porque hay tax_ids involucrados. Es recomputo
+            # genera cambios no compatibles con un pago.
+            # por eso antes de llamar a super tenemos que borrar toda la info de impuestos
             liquidity_lines, counterpart_lines, writeoff_lines = withholding._seek_for_lines()
+            # antes de poder hacer el write hacemos este hack para poder pasar esta constraint
+            # https://github.com/odoo/odoo/blob/b03d4c643647/addons/account/models/account_move_line.py#L1416
             liquidity_lines.parent_state = 'draft'
             liquidity_lines.write({
                 'tax_repartition_line_id': False,
@@ -118,7 +121,7 @@ class AccountPayment(models.Model):
                 rep_line.tax_id.name))
         return rep_line
 
-    def _prepare_move_line_default_vals(self, write_off_line_vals=None, force_balance=None):
+    def _prepare_move_line_default_vals(self, write_off_line_vals=None,force_balance=None):
         res = super()._prepare_move_line_default_vals(write_off_line_vals=write_off_line_vals, force_balance=force_balance)
 
         if self.payment_method_code == 'withholding':
