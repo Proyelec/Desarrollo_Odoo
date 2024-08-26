@@ -834,7 +834,7 @@ class AccountVatLedgerXlsx(models.AbstractModel):
                         sheet.write(row, 2, 'Nota de Debito', line)
 
                     # Número de Documento
-                    #sheet.write(row, 3, invoice.name or 'FALSE', line)
+                    sheet.write(row, 3, invoice.name or 'FALSE', line)
                     # Número de Control
                     sheet.write(row, 4, invoice.l10n_ve_document_number or 'FALSE', line)
                     # Ticket FiscalL                                                
