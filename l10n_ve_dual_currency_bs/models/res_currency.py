@@ -107,17 +107,6 @@ class ResCurrency(models.Model):
     """
     class InheritCurrencyRate(models.Model):
         _inherit = "res.currency.rate"
-
-        @api.onchange('company_rate')
-        def _onchange_company_rate(self):
-            if self.company_rate:
-                self.rate = self.company_rate
-
-        @api.onchange('rate')
-        def _onchange_rate(self):
-            if self.rate:
-                self.company_rate = self.rate
-
         @api.onchange('company_rate')
         def _onchange_rate_warning(self):
             latest_rate = self._get_latest_rate()
