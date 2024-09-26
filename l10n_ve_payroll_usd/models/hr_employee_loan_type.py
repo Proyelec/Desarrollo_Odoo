@@ -1,0 +1,96 @@
+from odoo import models, fields, api, _
+from odoo.exceptions import ValidationError
+
+
+class HREmployeeLoanType(models.Model):
+    _name = 'hr.employee.loan.type'
+    _description = 'Tipo de Préstamo'
+
+    @api.depends('loan_limit', 'loan_term')
+    def _compute_loan_counts(self):
+        for record in self:
+            loan_data = self.env['hr.employee.loan'].read_group(
+                [('loan_type_id', '=', record.id)],
+                ['state'],
+                ['state']
+            )
+            counts = {'draft': 0, 'done': 0, 'paid': 0}
+            for data in loan_data:
+                state = data['state']
+                if state in counts:
+                    counts[state] = data['state_count']
+            record.count_loan_draft = counts['draft']
+            record.count_loan_done = counts['done']
+            record.count_loan_paid = counts['paid']
+
+    currency_id = fields.Many2one(
+    'res.currency', string='Moneda', related='company_id.currency_id', readonly=True, store=True)
+
+    name = fields.Char('Nombre', required=True)
+    loan_limit = fields.Monetary('Monto Límite', default=0, required=True, currency_field='currency_id')
+    loan_term = fields.Integer('Cuotas', default=12, required=True)
+    is_apply_interest = fields.Boolean('Aplicar Interés', default=True)
+    interest_rate = fields.Float('% Intereses', default=10)
+    interest_type = fields.Selection([('liner', 'Linear'), ('reduce', 'Reducido')], string='Tipo de Interés', default='liner')
+
+    loan_account = fields.Many2one('account.account', string='Cuenta de Préstamo', required=True)
+    interest_account = fields.Many2one('account.account', string='Cuenta de Interés', required=True)
+    journal_id = fields.Many2one('account.journal', string='Diario', required=True)
+    color = fields.Integer(string='Color')
+    count_loan_draft = fields.Integer(compute='_compute_loan_counts')
+    count_loan_done = fields.Integer(compute='_compute_loan_counts')
+    count_loan_paid = fields.Integer(compute='_compute_loan_counts')
+    priority = fields.Selection([('0', 'Bajo'), ('1', 'Normal')], default='0')
+    company_id = fields.Many2one('res.company', string='Compañía', default=lambda self: self.env.user.company_id.id)
+    currency_id_dif = fields.Many2one('res.currency', string='Moneda Alternativa', related='company_id.currency_id', readonly=True)
+    
+    @api.onchange('is_apply_interest')
+    def _onchange_is_apply_interest_type(self):
+        if not self.is_apply_interest:
+            self.interest_rate = 0.0
+
+    @api.onchange('loan_type_id')
+    def _onchange_loan_type_id(self):
+        if self.loan_type_id:
+            self.interest_rate = self.loan_type_id.interest_rate if self.loan_type_id.is_apply_interest else 0.0
+            self.is_apply_interest = self.loan_type_id.is_apply_interest
+
+    def _get_action(self, action_xmlid):
+        action = self.env.ref(action_xmlid).read()[0]
+        if self:
+            action['display_name'] = self.display_name
+        return action
+
+    def get_action_loan_tree_done(self):
+        return self._get_action('dev_hr_loan.action_loan_tree_done')
+
+    def get_action_loan_tree_draft(self):
+        return self._get_action('dev_hr_loan.action_loan_tree_draft')
+
+    def action_get_hr_loan_type(self):
+        return self._get_action('dev_hr_loan.get_hr_loan_type')
+
+    def get_action_loan_paid(self):
+        return self._get_action('dev_hr_loan.action_loan_paid')
+
+    def get_action_hr_approval(self):
+        return self._get_action('dev_hr_loan.action_hr_approval')
+
+    def get_loan_create(self):
+        return self._get_action('dev_hr_loan.action_loan_create')
+
+    def get_all_loan(self):
+        return self._get_action('dev_hr_loan.action_view_all_loan')
+
+    def get_setting(self):
+        return self._get_action('dev_hr_loan.action_setting')
+
+    @api.constrains('is_apply_interest', 'interest_rate', 'interest_type')
+    def _check_interest_rate(self):
+        for loan in self:
+            if loan.is_apply_interest:
+                if loan.interest_rate <= 0:
+                    raise ValidationError("Interest Rate must be greater than 0.00")
+                if not loan.interest_type:
+                    raise ValidationError("Please select an Interest Type")
+                

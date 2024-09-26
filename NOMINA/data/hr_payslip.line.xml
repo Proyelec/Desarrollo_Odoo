@@ -1,0 +1,11 @@
+<record id="view_payslip_line_form_custom" model="ir.ui.view">
+    <field name="name">hr.payslip.line.form.custom</field>
+    <field name="model">hr.payslip.line</field>
+    <field name="inherit_id" ref="hr_payroll.view_hr_payslip_line_form"/>
+    <field name="arch" type="xml">
+        <xpath expr="//field[@name='amount']" position="after">
+            <field name="total"/>
+            <field name="total_ref"/>
+        </xpath>
+    </field>
+</record>

@@ -1,0 +1,21 @@
+<odoo>
+    <record id="rule_salary_per_days_worked" model="hr.salary.rule">
+        <field name="name">Salario por Días Trabajados</field>
+        <field name="sequence">10</field>
+        <field name="category_id" ref="hr_payroll.BASIC"/>
+        <field name="struct_id" ref="l10n_ve_payroll_usd.structure_quincenal"/>
+        <field name="code">SDTW</field>
+        <field name="condition_select">none</field>
+        <field name="amount_select">code</field>
+        <field name="amount_python_compute">
+wage = contract.wage
+dias_trabajados = 0
+for wd in payslip.worked_days_line_ids:
+    if wd.code == 'WORK100':
+        dias_trabajados += wd.number_of_days
+result = (wage / 30) * dias_trabajados
+        </field>
+        <field name="quantity">1</field>
+        <field name="appears_on_payslip">True</field>
+    </record>
+</odoo>
