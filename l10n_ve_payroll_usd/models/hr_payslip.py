@@ -154,12 +154,12 @@ class HRPayslip(models.Model):
     def _prepare_line_values(self, line, account_id, date, debit, credit):
         res = super(HRPayslip, self)._prepare_line_values(line, account_id, date, debit, credit)
         res['partner_id'] = self._get_partner_id(line.salary_rule_id)
-        if debit > 0:
-            res['debit'] = line.total_ref
-            res['credit'] = 0
-        if credit > 0:
-            res['debit'] = line.total_ref
-            res['credit'] = 0
+        # if debit > 0:
+        #     res['debit_ref'] = line.total_ref
+        #     res['credit_ref'] = 0
+        # if credit > 0:
+        #     res['credit_ref'] = line.total_ref
+        #     res['debit_ref'] = 0
         return res
 
     def _get_partner_id(self, salary_rule_id):
@@ -202,38 +202,104 @@ class HRPayslip(models.Model):
         for record in self:
             record["complemento_diario_bs"] = record.complemento_mensual_bs / 30
 
+    import logging
+
     def _create_account_move(self, values):
         for rec in self:
             if isinstance(values, list):
                 for l in values:
-                    if self.env['ir.module.module'].search([('name', '=', 'l10n_ve_dual_currency_bs'), ('state', '=', 'installed')]):
-                        debito = sum(line[2].get('debit', 0) for line in l['line_ids'])
-                        credito = sum(line[2].get('credit', 0) for line in l['line_ids'])
-                        
-                        # Redondeo para evitar diferencias menores
-                        diferencia = round(debito - credito, rec.company_id.currency_id.decimal_places)
-                        
-                        if diferencia > 0:
-                            l['line_ids'].append((0, 0, {'name': 'Diferencia', 'account_id': l['journal_id'].default_account_id.id,
-                                                        'debit': diferencia, 'credit': 0}))
-                        elif diferencia < 0:
-                            l['line_ids'].append((0, 0, {'name': 'Diferencia', 'account_id': l['journal_id'].default_account_id.id,
-                                                        'debit': 0, 'credit': -diferencia}))
-            else:
-                if self.env['ir.module.module'].search([('name', '=', 'l10n_ve_dual_currency_bs'), ('state', '=', 'installed')]):
-                    debito = sum(l[2].get('debit', 0) for l in values['line_ids'])
-                    credito = sum(l[2].get('credit', 0) for l in values['line_ids'])
+                    if self.env['ir.module.module'].search(
+                            [('name', '=', 'account_dual_currency'), ('state', '=', 'installed')]):
+                        l['tax_today'] = rec.tasa_cambio
                     
-                    # Redondeo para evitar diferencias menores
-                    diferencia = round(debito - credito, rec.company_id.currency_id.decimal_places)
+                    # para todas las line_ids en values sumar los debitos y creditos
+                    # si el debito es mayor que el credito entonces crear una linea con el monto de la diferencia
+                    # si el credito es mayor que el debito entonces crear una linea con el monto de la diferencia
+                    # si el debito es igual al credito entonces no crear linea
+                    debito = 0
+                    debito_ref = 0
+                    credito = 0
+                    credito_ref = 0
+                    journal_id = self.env['account.journal'].browse(l['journal_id'])
+                    default_account = journal_id.default_account_id
+                    
+                    for line in l['line_ids']:
+                        debito += line[2].get('debit', 0)  # Usar get para evitar KeyError
+                        # debito_ref += line[2].get('debit_ref', 0)  # Descomentado si es necesario
+                        credito += line[2].get('credit', 0)  # Usar get para evitar KeyError
+                        # credito_ref += line[2].get('credit_ref', 0)  # Descomentado si es necesario
+                    
+                    diferencia = debito - credito
+                    # diferencia_ref = debito_ref - credito_ref  # Descomentado si es necesario
+                    diferencia = round(diferencia, rec.company_id.currency_id.decimal_places)
+                    # diferencia_ref = round(diferencia_ref, rec.company_id.currency_id_dif.decimal_places)  # Descomentado si es necesario
                     
                     if diferencia > 0:
-                        values['line_ids'].append((0, 0, {'name': 'Diferencia', 'account_id': values['journal_id'].default_account_id.id,
-                                                            'debit': diferencia, 'credit': 0}))
+                        l['line_ids'].append((0, 0, {
+                            'name': 'Diferencia',
+                            'account_id': default_account.id,
+                            'debit': 0,
+                            # 'debit_ref': 0,  # Descomentado si es necesario
+                            'credit': abs(diferencia),
+                            # 'credit_ref': abs(diferencia_ref),  # Descomentado si es necesario
+                        }))
                     elif diferencia < 0:
-                        values['line_ids'].append((0, 0, {'name': 'Diferencia', 'account_id': values['journal_id'].default_account_id.id,
-                                                            'debit': 0, 'credit': -diferencia}))
+                        l['line_ids'].append((0, 0, {
+                            'name': 'Diferencia',
+                            'account_id': default_account.id,
+                            'debit': abs(diferencia),
+                            # 'debit_ref': abs(diferencia_ref),  # Descomentado si es necesario
+                            'credit': 0,
+                            # 'credit_ref': 0,  # Descomentado si es necesario
+                        }))
+            else:
+                # verificar si esta instalado la account_dual_currency
+                if self.env['ir.module.module'].search([('name', '=', 'account_dual_currency'), ('state', '=', 'installed')]):
+                    values['tax_today'] = rec.tasa_cambio
+                
+                # para todas las line_ids en values sumar los debitos y creditos
+                # si el debito es mayor que el credito entonces crear una linea con el monto de la diferencia
+                # si el credito es mayor que el debito entonces crear una linea con el monto de la diferencia
+                # si el debito es igual al credito entonces no crear linea
+                debito = 0
+                debito_ref = 0
+                credito = 0
+                credito_ref = 0
+                journal_id = self.env['account.journal'].browse(values['journal_id'])
+                default_account = journal_id.default_account_id
+                
+                for l in values['line_ids']:
+                    debito += l[2].get('debit', 0)  # Usar get para evitar KeyError
+                    # debito_ref += l[2].get('debit_ref', 0)  # Descomentado si es necesario
+                    credito += l[2].get('credit', 0)  # Usar get para evitar KeyError
+                    # credito_ref += l[2].get('credit_ref', 0)  # Descomentado si es necesario
+                
+                diferencia = debito - credito
+                # diferencia_ref = debito_ref - credito_ref  # Descomentado si es necesario
+                diferencia = round(diferencia, rec.company_id.currency_id.decimal_places)
+                # diferencia_ref = round(diferencia_ref, rec.company_id.currency_id_dif.decimal_places)  # Descomentado si es necesario
+                
+                if diferencia > 0:
+                    values['line_ids'].append((0, 0, {
+                        'name': 'Diferencia',
+                        'account_id': default_account.id,
+                        'debit': 0,
+                        # 'debit_ref': 0,  # Descomentado si es necesario
+                        'credit': abs(diferencia),
+                        # 'credit_ref': abs(diferencia_ref),  # Descomentado si es necesario
+                    }))
+                elif diferencia < 0:
+                    values['line_ids'].append((0, 0, {
+                        'name': 'Diferencia',
+                        'account_id': default_account.id,
+                        'debit': abs(diferencia),
+                        # 'debit_ref': abs(diferencia_ref),  # Descomentado si es necesario
+                        'credit': 0,
+                        # 'credit_ref': 0,  # Descomentado si es necesario
+                    }))
+
         return self.env['account.move'].sudo().create(values)
+
 
     def action_payslip_done(self):
         res = super(HRPayslip, self).action_payslip_done()
