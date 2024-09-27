@@ -1,26 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Definición de la plantilla de correo para la confirmación de préstamo por el Gerente de HR -->
-    <record id="hr_manager_confirm_loan" model="mail.template">
-        <field name="name">Confirmación de Préstamo por el Gerente de HR</field>
-        <field name="email_from">${object.company_id.email or ''}</field>
-        <field name="subject">Préstamo Aprobado</field>
-        <field name="model_id" ref="l10n_ve_payroll_usd.model_hr_employee_loan"/>
-        <field name="body_html">
-            <![CDATA[
-            <p>Estimado(a) ${object.employee_id.name},</p>
-            <p>Su solicitud de préstamo ha sido aprobada por el Gerente de Recursos Humanos.</p>
-            <p>Atentamente,<br/>El equipo de HR</p>
-            ]]>
-        </field>
-    </record>
-
-    <!-- Vistas del modelo hr.employee.loan -->
     <record id="view_hr_employee_loan_form" model="ir.ui.view">
         <field name="name">view.hr.employee.loan.form</field>
         <field name="model">hr.employee.loan</field>
         <field name="arch" type="xml">
-            <form string="Préstamos de Empleados">
+            <form string="Prestamos de Empleados">
                 <header>
                     <button name="compute_installment" string="Calcular Cuotas" class="btn-primary" type="object" groups="base.group_user" modifiers="{'invisible': [('state', '!=', 'draft')]}"/>
                     <button name="action_send_request" string="Enviar Solicitud" class="btn-primary" type="object" groups="base.group_user" modifiers="{'invisible': [('state', '!=', 'draft')]}"/>
@@ -29,11 +13,11 @@
                     <button name="cancel_loan" string="Cancelar" type="object" groups="base.group_user" modifiers="{'invisible': [('state', '!=', 'request')]}"/>
                     <button name="hr_manager_approval_loan" string="Confirmar" class="btn-primary" type="object" groups="hr.group_hr_manager" modifiers="{'invisible': [('state', '!=', 'dep_approval')]}"/>
                     <button name="hr_manager_reject_loan" string="Rechazar" class="btn-primary" type="object" groups="hr.group_hr_manager" modifiers="{'invisible': [('state', '!=', 'dep_approval')]}"/>
-                    <button name="paid_loan" string="Desembolsar Préstamo" class="btn-primary" type="object" groups="hr.group_hr_manager" modifiers="{'invisible': [('state', '!=', 'hr_approval')]}"/>
+                    <button name="paid_loan" string="Desembolsar préstamo" class="btn-primary" type="object" groups="hr.group_hr_manager" modifiers="{'invisible': [('state', '!=', 'hr_approval')]}"/>
                     <button name="set_to_draft" string="Pasar a Borrador" class="btn-primary" type="object" groups="base.group_user" modifiers="{'invisible': [('state', '!=', 'cancel')]}"/>
                     <button name="action_close_loan" string="Cerrar" class="btn-primary" type="object" groups="hr.group_hr_manager" modifiers="{'invisible': [('is_close', '!=', True)]}"/>
                     <button name="action_done_loan" string="Finalizar" class="btn-primary" type="object" groups="hr.group_hr_manager" modifiers="{'invisible': [('state', '!=', 'paid')]}"/>
-                    <button name="send_loan_detail" string="Enviar Email" class="btn-primary" type="object" groups="hr.group_hr_user" modifiers="{'invisible': [('state', '!=', 'done')]}"/>
+                    <button name='send_loan_detail' string='Enviar Email' class="btn-primary" type="object" groups="hr.group_hr_user" modifiers="{'invisible': [('state', '!=', 'done')]}"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,request,dep_approval,hr_approval,done"/>
                 </header>
                 <sheet>
@@ -65,13 +49,14 @@
                         <group>
                             <field name="is_apply_interest" invisible="1"/>
                             <field name="payment_method" modifiers="{'readonly': [('state', '!=', 'draft')]}"/>
+                            <field name="currency_id_dif" readonly="1"/>
                             <field name="loan_amount" modifiers="{'readonly': [('state', '!=', 'draft')]}"/>
                             <field name="interest_amount" modifiers="{'invisible': [('is_apply_interest', '!=', True)]}"/>
                             <field name="paid_amount"/>
                             <field name="remaing_amount"/>
                         </group>
                         <group>
-                            <field name="loan_type_id" on_change="1" modifiers="{'readonly': [('state', '!=', 'draft')]}"/>
+                            <field name="loan_type_id" modifiers="{'readonly': [('state', '!=', 'draft')]}"/>
                             <field name="start_date" modifiers="{'readonly': [('state', '!=', 'draft')]}"/>
                             <field name="term" modifiers="{'readonly': [('state', '!=', 'draft')]}"/>
                             <field name="period" modifiers="{'readonly': [('state', '!=', 'draft')]}"/>
@@ -104,6 +89,7 @@
                                     <field name="installment_amt" sum="installment_amt"/>
                                     <field name="ins_interest" sum="ins_interest"/>
                                     <field name="total_installment" sum="total_installment"/>
+                                    <field name="currency_id_dif" readonly="1"/>
                                     <field name="is_paid" invisible="1"/>
                                     <field name="is_skip" invisible="1"/>
                                     <button type="object" name="action_view_payslip" string="Payslip" class="btn-primary" groups="hr.group_hr_manager" modifiers="{'invisible': [('is_paid', '=', False)]}"/>
@@ -123,8 +109,8 @@
                                                 <div class="oe_kanban_details">
                                                     <strong><h3><field name="sequ_name"/></h3></strong>
                                                     <ul>
-                                                        <li><span style="color: #800000">Nombre: </span><field name="name"/></li>
-                                                        <li><span style="color: #800000">Fecha: </span><field name="date"/></li>
+                                                        <li><span style="color: #800000">Name : </span><field name="name"/></li>
+                                                        <li><span style="color: #800000">Date: </span><field name="date"/></li>
                                                     </ul>
                                                 </div>
                                             </div>
@@ -143,12 +129,11 @@
         </field>
     </record>
 
-    <!-- Vista en árbol -->
     <record id="view_hr_employee_loan_tree" model="ir.ui.view">
         <field name="name">view.hr.employee.loan.tree</field>
         <field name="model">hr.employee.loan</field>
         <field name="arch" type="xml">
-            <tree string="Préstamos de Empleados">
+            <tree string="Prestamos de Empleados">
                 <field name="name"/>
                 <field name="employee_id"/>
                 <field name="state"/>
@@ -156,12 +141,11 @@
         </field>
     </record>
 
-    <!-- Filtro de búsqueda -->
     <record id="view_hr_employee_loan_filter" model="ir.ui.view">
         <field name="name">hr.employee.loan.select</field>
         <field name="model">hr.employee.loan</field>
         <field name="arch" type="xml">
-            <search string="Buscar Préstamos de Empleados">
+            <search string="Search Prestamos de Empleados">
                 <field name="employee_id" operator="child_of"/>
                 <field name="user_id"/>
                 <field name="name" string="Loan" filter_domain="[('name','ilike',self)]"/>
@@ -171,7 +155,7 @@
                 <filter name='hr_approval' string="Aprobado HR" domain="[('state','=','hr_approval')]"/>
                 <field name="loan_type_id"/>
 
-                <group expand="0" string="Agrupar Por">
+                <group expand="0" string="Group By">
                     <filter string="Empleados" name="employee_id" context="{'group_by':'employee_id'}"/>
                     <filter string="Manager" name="manager_id" context="{'group_by':'manager_id'}"/>
                     <filter string="Tipo" name="type" context="{'group_by':'loan_type_id'}"/>
@@ -181,9 +165,8 @@
         </field>
     </record>
 
-    <!-- Acción para ver todos los préstamos -->
     <record id="action_view_all_loan" model="ir.actions.act_window">
-        <field name="name">Ver Préstamos</field>
+        <field name="name">View Loan</field>
         <field name="res_model">hr.employee.loan</field>
         <field name="type">ir.actions.act_window</field>
         <field name="view_mode">tree,form</field>
@@ -192,14 +175,13 @@
         <field name="search_view_id" ref="view_hr_employee_loan_filter"/>
         <field name="help" type="html">
             <p class="oe_view_nocontent_create">
-                Haga clic aquí para crear un nuevo préstamo.
+                Click here to create a new Loan.
             </p>
         </field>
     </record>
 
-    <!-- Otras acciones relacionadas con préstamos -->
     <record id="action_loan_create" model="ir.actions.act_window">
-        <field name="name">Crear Préstamo</field>
+        <field name="name">Loan Create</field>
         <field name="res_model">hr.employee.loan</field>
         <field name="type">ir.actions.act_window</field>
         <field name="view_mode">form</field>
@@ -212,13 +194,13 @@
         <field name="search_view_id" ref="view_hr_employee_loan_form"/>
         <field name="help" type="html">
             <p class="oe_view_nocontent_create">
-                Haga clic aquí para crear un nuevo préstamo.
+                Click here to create a new Loan.
             </p>
         </field>
     </record>
 
     <record id="action_hr_approval" model="ir.actions.act_window">
-        <field name="name">Préstamos Aprobados</field>
+        <field name="name">Done Loan</field>
         <field name="res_model">hr.employee.loan</field>
         <field name="type">ir.actions.act_window</field>
         <field name="view_mode">tree,form</field>
@@ -232,13 +214,13 @@
         <field name="search_view_id" ref="view_hr_employee_loan_filter"/>
         <field name="help" type="html">
             <p class="oe_view_nocontent_create">
-                Haga clic aquí para crear un nuevo préstamo.
+                Click here to create a new Loan.
             </p>
         </field>
     </record>
 
     <record id="action_loan_paid" model="ir.actions.act_window">
-        <field name="name">Préstamos Pagados</field>
+        <field name="name">Done Loan</field>
         <field name="res_model">hr.employee.loan</field>
         <field name="type">ir.actions.act_window</field>
         <field name="view_mode">tree,form</field>
@@ -252,13 +234,13 @@
         <field name="search_view_id" ref="view_hr_employee_loan_filter"/>
         <field name="help" type="html">
             <p class="oe_view_nocontent_create">
-                Haga clic aquí para crear un nuevo préstamo.
+                Click here to create a new Loan.
             </p>
         </field>
     </record>
 
     <record id="action_loan_tree_done" model="ir.actions.act_window">
-        <field name="name">Préstamos Completados</field>
+        <field name="name">Done Loan</field>
         <field name="res_model">hr.employee.loan</field>
         <field name="type">ir.actions.act_window</field>
         <field name="view_mode">tree,form</field>
@@ -272,13 +254,13 @@
         <field name="search_view_id" ref="view_hr_employee_loan_filter"/>
         <field name="help" type="html">
             <p class="oe_view_nocontent_create">
-                Haga clic aquí para crear un nuevo préstamo.
+                Click here to create a new Loan.
             </p>
         </field>
     </record>
 
     <record id="action_loan_tree_draft" model="ir.actions.act_window">
-        <field name="name">Préstamos en Borrador</field>
+        <field name="name">Draft Loan</field>
         <field name="res_model">hr.employee.loan</field>
         <field name="type">ir.actions.act_window</field>
         <field name="view_mode">tree,form</field>
@@ -292,13 +274,13 @@
         <field name="search_view_id" ref="view_hr_employee_loan_filter"/>
         <field name="help" type="html">
             <p class="oe_view_nocontent_create">
-                Haga clic aquí para crear un nuevo préstamo.
+                Click here to create a new Loan.
             </p>
         </field>
     </record>
 
     <record id="get_hr_loan_type" model="ir.actions.act_window">
-        <field name="name">Préstamos de Empleados</field>
+        <field name="name">Prestamos de Empleados</field>
         <field name="res_model">hr.employee.loan</field>
         <field name="type">ir.actions.act_window</field>
         <field name="view_mode">tree,form</field>
@@ -311,23 +293,23 @@
         <field name="search_view_id" ref="view_hr_employee_loan_filter"/>
         <field name="help" type="html">
             <p class="oe_view_nocontent_create">
-                Haga clic aquí para crear un nuevo préstamo.
+                Click here to create a new Loan.
             </p>
         </field>
     </record>
 
     <record model="ir.actions.act_window" id="action_hr_employee_loan">
-        <field name="name">Préstamos de Empleados</field>
+        <field name="name">Prestamos de Empleados</field>
         <field name="res_model">hr.employee.loan</field>
         <field name="view_mode">tree,form</field>
         <field name="context">{'search_default_my_loans':1}</field>
         <field name="help" type="html">
             <p class="oe_view_nocontent_create">
-                Haga clic para definir un nuevo préstamo.
+                Click to define a new loan.
             </p>
         </field>
     </record>
 
-    <menuitem id="menu_main_hr_employee_loan" parent="hr.menu_hr_root" name="Préstamos" sequence="15"/>
-    <menuitem name="Préstamos de Empleados" id="menu_hr_employee_loan" parent="menu_main_hr_employee_loan" action="action_hr_employee_loan"/>
+    <menuitem id="menu_main_hr_employee_loan" parent="hr.menu_hr_root" name="Prestamos" sequence="15"/>
+    <menuitem name="Prestamos de Empleados" id="menu_hr_employee_loan" parent="menu_main_hr_employee_loan" action="action_hr_employee_loan"/>
 </odoo>

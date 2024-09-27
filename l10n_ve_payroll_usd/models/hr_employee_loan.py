@@ -107,7 +107,7 @@ class HREmployeeLoan(models.Model):
                     if date.day == 31:
                         date = date.replace(day=30)
                 else:
-                    date = date + relativedelta(months(1)).replace(day=15)
+                    date = date + relativedelta(months=1, day=15)
             else:
                 date = date + relativedelta(months=i)
 
@@ -121,7 +121,7 @@ class HREmployeeLoan(models.Model):
                 if self.interest_type == 'reduce':
                     amount -= self.installment_amount * i
                     interest_amount = (amount * self.term / (12 if self.period == 'monthly' else 24) * self.interest_rate) / 100
-                
+
                 ins_interest_amount = interest_amount / self.term
 
             vals.append((0, 0, {
@@ -138,33 +138,21 @@ class HREmployeeLoan(models.Model):
         self.installment_lines = vals
 
 
-    @api.onchange('is_apply_interest')
-    def _onchange_is_apply_interest(self):
-        if not self.is_apply_interest:
-            self.interest_rate = 0.0
-    
-    @api.onchange('loan_type_id', 'interest_type', 'term')
-    def _onchange_loan_type(self):
-        if self.loan_type_id:
-            self.term = self.loan_type_id.loan_term
-            self.interest_rate = self.loan_type_id.interest_rate if self.is_apply_interest else 0.0
-            self.interest_type = self.loan_type_id.interest_type
-
     @api.depends('paid_amount', 'loan_amount', 'interest_amount')
     def get_remaing_amount(self):
         for loan in self:
             loan.remaing_amount = loan.loan_amount + loan.interest_amount - loan.paid_amount
 
-    @api.depends('loan_amount', 'interest_rate', 'is_apply_interest', 'installment_lines')
+    @api.depends('loan_amount', 'interest_rate', 'is_apply_interest')
     def get_interest_amount(self):
         for loan in self:
             if loan.is_apply_interest:
-                if loan.interest_type == 'liner':
-                    loan.interest_amount = (loan.loan_amount * loan.term / 12 * loan.interest_rate) / 100
-                else:
-                    loan.interest_amount = sum(line.ins_interest for line in loan.installment_lines)
+                loan.interest_amount = (
+                    (loan.loan_amount * loan.term / 12 * loan.interest_rate) / 100 
+                    if loan.interest_type == 'liner' 
+                    else sum(line.ins_interest for line in loan.installment_lines))
             else:
-                loan.interest_amount = 0.0
+                loan.interest_amount = 0.0  # Si no aplica interés, se asegura que el monto sea 0
 
 
     @api.onchange('interest_type', 'interest_rate')
@@ -201,12 +189,6 @@ class HREmployeeLoan(models.Model):
 
             if loan_count > loan.employee_id.loan_request:
                 raise ValidationError(f"Usted ya tiene {loan.employee_id.loan_request} préstamos en este año")
-
-    @api.onchange('loan_type_id')
-    def _onchange_loan_type_id(self):
-        if self.loan_type_id:
-            self.term = self.loan_type_id.loan_term
-
 
     @api.constrains('loan_amount', 'term', 'loan_type_id', 'employee_id.loan_request')
     def _check_loan_amount_term(self):
@@ -362,4 +344,3 @@ class HREmployeeLoan(models.Model):
 
             # Registrar el hecho en el chatter
             loan.message_post(body=_("Se ha enviado el correo electrónico con los detalles del préstamo."))
-

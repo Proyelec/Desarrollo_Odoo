@@ -1,14 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <data>
-        <!--
-        Tipos de estructura mensual
+        <!--    Tipos de estructura mensual    -->
         <record id="structure_type_mensual" model="hr.payroll.structure.type">
             <field name="name">Mensual</field>
             <field name="default_schedule_pay">monthly</field>
         </record>
 
-        Estructura Mensual
+        <!--    Estructura Mensual  -->
         <record id="structure_mensual" model="hr.payroll.structure">
             <field name="name">Mensual</field>
             <field name="type_id" ref="structure_type_mensual"/>
@@ -16,8 +15,8 @@
             <field name="procesar_prestaciones" eval="True"/>
         </record>
 
-        Reglas de nomina mensual
-        Asignaciones
+        <!--    Reglas de nomina mensual    -->
+        <!--    Asignaciones    -->
 
         <record id="rule_SMENS_mensual" model="hr.salary.rule">
             <field name="name">Salario básico mensual</field>
@@ -35,7 +34,7 @@ result = (monto / 30) * (WORK100 + AUSEP)
             <field name="struct_id" ref="structure_mensual"/>
         </record>
 
-        Eleiminar regla, se ha separado en 2
+        <!--Eleiminar regla, se ha separado en 2-->
         <record id="rule_DDESCANSO_mensual" model="hr.salary.rule">
             <field name="name">Días descanso</field>
             <field name="code">DDES</field>
@@ -249,7 +248,7 @@ result = inputs.ADEP.amount
             <field name="struct_id" ref="l10n_ve_payroll_usd.structure_mensual"/>
         </record>
 
-        Deducciones  100
+        <!--    Deducciones   100 -->
 
         <record id="rule_DESCSSO_mensual" model="hr.salary.rule">
             <field name="name">Retención SSO</field>
@@ -373,7 +372,7 @@ result = payslip.installment_int * payslip.tasa_cambio
 
 
 
-        Aprtes de empresa   200
+        <!--    Aprtes de empresa   200 -->
 
         <record id="rule_APORSSO_mensual" model="hr.salary.rule">
             <field name="name">Aporte SSO</field>
@@ -473,7 +472,7 @@ result = base * (employee.company_id.por_empresa_inces/100)
         </record>
 
 
-        Totales  300
+        <!--    Totales   300 -->
 
         <record id="rule_total_asignaciones_mensual" model="hr.salary.rule">
             <field name="name">Total Asignaciones</field>
@@ -515,6 +514,6 @@ result = (categories.BASIC + categories.ASIGNA + categories.SUBS + categories.BO
             <field name="sequence" eval="500"/>
             <field name="struct_id" ref="structure_mensual"/>
         </record>
-        -->
+
     </data>
 </odoo>

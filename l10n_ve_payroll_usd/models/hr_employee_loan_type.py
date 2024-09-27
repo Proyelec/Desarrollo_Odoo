@@ -43,17 +43,6 @@ class HREmployeeLoanType(models.Model):
     priority = fields.Selection([('0', 'Bajo'), ('1', 'Normal')], default='0')
     company_id = fields.Many2one('res.company', string='Compañía', default=lambda self: self.env.user.company_id.id)
     currency_id_dif = fields.Many2one('res.currency', string='Moneda Alternativa', related='company_id.currency_id', readonly=True)
-    
-    @api.onchange('is_apply_interest')
-    def _onchange_is_apply_interest_type(self):
-        if not self.is_apply_interest:
-            self.interest_rate = 0.0
-
-    @api.onchange('loan_type_id')
-    def _onchange_loan_type_id(self):
-        if self.loan_type_id:
-            self.interest_rate = self.loan_type_id.interest_rate if self.loan_type_id.is_apply_interest else 0.0
-            self.is_apply_interest = self.loan_type_id.is_apply_interest
 
     def _get_action(self, action_xmlid):
         action = self.env.ref(action_xmlid).read()[0]
@@ -93,4 +82,3 @@ class HREmployeeLoanType(models.Model):
                     raise ValidationError("Interest Rate must be greater than 0.00")
                 if not loan.interest_type:
                     raise ValidationError("Please select an Interest Type")
-                
