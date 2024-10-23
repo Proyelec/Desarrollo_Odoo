@@ -183,11 +183,11 @@ class AccountMove(models.Model):
                     totalImpuesto = sum([round(valor,2) for impuesto, valor in self.calcular_totales_por_impuesto().items()])   
 
                     total_amount_untaxed = sum([line.price_subtotal for line in move.invoice_line_ids])
-                    str_total_amount_untaxed = (Decimal(total_amount_untaxed) * Decimal(tax_day)).quantize(Decimal('1.0000'))
+                    str_total_amount_untaxed = (Decimal(total_amount_untaxed) * Decimal(tax_day)).quantize(Decimal('1.00'))
 
 
                     total_impuestoUSD = sum([round(valor,6) for impuesto, valor in self.calcular_totales_por_impuesto_USD().items()])  
-                    str_total_impuestoUSD= (Decimal(total_impuestoUSD) * Decimal(tax_day)).quantize(Decimal('1.0000'))
+                    str_total_impuestoUSD= (Decimal(total_impuestoUSD) * Decimal(tax_day)).quantize(Decimal('1.00'))
 
 
                     amount_residual = Decimal(str(move.amount_residual ))
@@ -196,7 +196,7 @@ class AccountMove(models.Model):
                     amount_untaxed_bs = amount_untaxed_bs.quantize(Decimal('1.00'), rounding=ROUND_DOWN)
     
 
-                    TOTAL = (Decimal(total_amount_untaxed) * Decimal(tax_day) + (Decimal(total_impuestoUSD) * Decimal(tax_day))  ).quantize(Decimal('1.0000'),rounding=ROUND_DOWN)
+                    TOTAL = (Decimal(total_amount_untaxed) * Decimal(tax_day) + (Decimal(total_impuestoUSD) * Decimal(tax_day))  ).quantize(Decimal('1.00'),rounding=ROUND_DOWN)
                     
                     
                     amount_residual_bs = amount_residual * tax_day

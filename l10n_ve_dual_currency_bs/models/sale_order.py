@@ -103,21 +103,21 @@ class SaleOrder(models.Model):
             if order.tax_day > 0:                
                 tax_day = Decimal(str(order.tax_day))
                 total_amount_untaxed = sum([line.price_subtotal for line in order.order_line])
-                str_total_amount_untaxed = (Decimal(total_amount_untaxed) * Decimal(tax_day)).quantize(Decimal('1.0000'))
+                str_total_amount_untaxed = (Decimal(total_amount_untaxed) * Decimal(tax_day)).quantize(Decimal('1.00'))
 
                 total_impuestoUSD = sum([round(valor,6) for impuesto, valor in self.calcular_totales_por_impuesto_USD().items()])  
-                str_total_impuestoUSD= (Decimal(total_impuestoUSD) * Decimal(tax_day)).quantize(Decimal('1.0000'))
+                str_total_impuestoUSD= (Decimal(total_impuestoUSD) * Decimal(tax_day)).quantize(Decimal('1.00'))
 
 
-                TOTAL = (Decimal(total_amount_untaxed) * Decimal(tax_day) + (Decimal(total_impuestoUSD) * Decimal(tax_day))  ).quantize(Decimal('1.0000'),rounding=ROUND_DOWN)
+                TOTAL = (Decimal(total_amount_untaxed) * Decimal(tax_day) + (Decimal(total_impuestoUSD) * Decimal(tax_day))  ).quantize(Decimal('1.00'),rounding=ROUND_DOWN)
                 
                 order.amount_untaxed_bs = str_total_amount_untaxed 
                 order.amount_tax_bs = str_total_impuestoUSD
                 order.amount_total_bs =  TOTAL
             else :
-                order.amount_untaxed_bs = 0.0000
-                order.amount_tax_bs= 0.0000
-                order.amount_total_bs =  0.0000
+                order.amount_untaxed_bs = 0.00
+                order.amount_tax_bs= 0.00
+                order.amount_total_bs =  0.00
 
     def _compute_amounts_line_bs(self):
         for line in self.order_line:
