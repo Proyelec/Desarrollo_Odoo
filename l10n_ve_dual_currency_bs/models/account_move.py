@@ -15,10 +15,10 @@ _logger = logging.getLogger(__name__)
 class AccountMove(models.Model):
     _inherit = 'account.move'
     
-    amount_untaxed_bs = fields.Float(string="Dual Base Imponible Bs.", store=True, compute='_compute_amounts_bs', tracking=5, digits=(16, 4))
-    amount_tax_bs = fields.Float(string="Dual Impuesto Bs", store=True, compute='_compute_amounts_bs',digits=(16, 4))
-    amount_total_bs = fields.Float(string="Dual Total BS", store=True, compute='_compute_amounts_bs', tracking=4,digits=(16, 4))
-    currency_ref_id = fields.Many2one('res.currency', string='Dual Moneda', default=lambda self: self.env.ref('base.VEF'),digits=(16, 4))
+    amount_untaxed_bs = fields.Float(string="Dual Base Imponible Bs.", store=True, compute='_compute_amounts_bs', tracking=5, digits=(16, 2))
+    amount_tax_bs = fields.Float(string="Dual Impuesto Bs", store=True, compute='_compute_amounts_bs',digits=(16, 2))
+    amount_total_bs = fields.Float(string="Dual Total BS", store=True, compute='_compute_amounts_bs', tracking=4,digits=(16, 2))
+    currency_ref_id = fields.Many2one('res.currency', string='Dual Moneda', default=lambda self: self.env.ref('base.VEF'),digits=(16, 2))
     amount_residual_bs = fields.Monetary(
         string='Dual Bs. Monto Deudor',
         compute='_compute_amounts_bs', 
@@ -60,7 +60,7 @@ class AccountMove(models.Model):
         string='Tasa del día',
         default = getRate,
         states = {'sale': [('readonly', True)]},
-        digits='Product Price',
+        digits=(16, 4),
     )
 
 

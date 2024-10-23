@@ -18,15 +18,15 @@ class PurchaseOrder(models.Model):
 
     validate_Check_orderline  = fields.Boolean(string='Validar si tiene lineas',compute='_compute_validate_order_line')
     
-    amount_untaxed_bs = fields.Float(string="Base Imponible Bs.", store=True, compute='_compute_amounts_bs', tracking=5, digits=(16, 4))
-    amount_tax_bs = fields.Float(string="Impuesto Bs", store=True, compute='_compute_amounts_bs',digits=(16, 4))
-    amount_total_bs = fields.Float(string="Total BS", store=True, compute='_compute_amounts_bs', tracking=4,digits=(16, 4))
-    currency_ref_id = fields.Many2one('res.currency', string='Currency', default=lambda self: self.env.ref('base.VEF'),digits=(16, 4))
+    amount_untaxed_bs = fields.Float(string="Base Imponible Bs.", store=True, compute='_compute_amounts_bs', tracking=5, digits=(16, 2))
+    amount_tax_bs = fields.Float(string="Impuesto Bs", store=True, compute='_compute_amounts_bs',digits=(16, 2))
+    amount_total_bs = fields.Float(string="Total BS", store=True, compute='_compute_amounts_bs', tracking=4,digits=(16, 2))
+    currency_ref_id = fields.Many2one('res.currency', string='Currency', default=lambda self: self.env.ref('base.VEF'),digits=(16, 2))
     amount_residual_bs = fields.Monetary(
         string='Bs. Monto Deudor',
         compute='_compute_amounts_bs', 
         store=True,
-        digits=(16, 4)
+        digits=(16, 2)
     )
 
     @api.model
@@ -42,7 +42,7 @@ class PurchaseOrder(models.Model):
         string='Tasa del día',
         default = getRate,
         states = {'sale': [('readonly', True)]},
-        digits='Product Price',
+        digits=(16, 4),
     )
 
     def calcular_totales_por_impuesto(self):
