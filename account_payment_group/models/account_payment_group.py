@@ -152,8 +152,8 @@ class AccountPaymentGroup(models.Model):
         compute='_compute_to_pay_move_lines', store=True,
         help='This lines are the ones the user has selected to be paid.',
         copy=False,
-        readonly=True,
-        states={'draft': [('readonly', False)]},
+        readonly=False,
+        # states={'draft': [('readonly', False)]},
         check_company=True
     )
     matched_move_line_ids = fields.Many2many(
