@@ -1,26 +1,17 @@
-###############################################################################
-# Author: SINAPSYS GLOBAL SA || MASTERCORE SAS
-# Copyleft: 2020-Present.
-# License LGPL-3.0 or later (http://www.gnu.org/licenses/lgpl.html).
-#
-#
-###############################################################################
 from odoo import models, api, fields, _
 from odoo.exceptions import ValidationError
-import json
-import logging
-
-_logger = logging.getLogger(__name__)
-
 
 class AccountPaymentGroup(models.Model):
-
     _inherit = "account.payment.group"
 
-    # this field is to be used by vat retention
+    # Campos adicionales de retención
     selected_debt_taxed = fields.Monetary(
-        string='Selected Debt taxed',
+        string='Selected Debt Taxed',
         compute='_compute_selected_debt_taxed',
+    )
+    debt_multicurrency = fields.Boolean(
+        string='Debt is in foreign currency?',
+        default=False,
     )
     iva = fields.Boolean('¿Aplicar Retención IVA?')
     islr = fields.Boolean('¿Aplicar Retención ISLR?')
@@ -30,114 +21,77 @@ class AccountPaymentGroup(models.Model):
     )
     partner_regimen_islr_ids = fields.Many2many(
         'seniat.tabla.islr',
-        compute='_partner_regimenes_islr',
+        compute='_compute_partner_regimen_islr',
     )
-    #This field is to be used by invoice in multicurrency
-    selected_finacial_debt = fields.Monetary(
-        string='Selected Financial Debt',
-        compute='_compute_selected_debt_financial',
+
+    # Campo principal para calcular la deuda seleccionada
+    selected_debt = fields.Monetary(
+        string='Selected Debt',
+        compute='_compute_selected_debt',
+        store=True,
     )
-    selected_finacial_debt_currency = fields.Monetary(
-        string='Selected Financial Debt in foreign currency',
-        compute='_compute_selected_debt_financial',
-    )
-    debt_multicurrency = fields.Boolean(
-        string='debt is in foreign currency?', default=False,
-    )
-    selected_debt_currency_id = fields.Many2one("res.currency",
-        string='Selected Debt in foreign currency',
-    )
-    @api.depends('partner_id.seniat_regimen_islr_ids')
-    def _partner_regimenes_islr(self):
-        """
-        Lo hacemos con campo computado y no related para que solo se setee
-        y se exija si es pago a proveedor
-        """
+
+    @api.depends('to_pay_move_line_ids.amount_residual')
+    def _compute_selected_debt(self):
+        """ Calcula el total de la deuda seleccionada con signo dependiendo del tipo de partner """
         for rec in self:
-            if rec.partner_type == 'supplier':
-                rec.partner_regimen_islr_ids = rec.partner_id.seniat_regimen_islr_ids
-            else:
-                rec.partner_regimen_islr_ids = rec.env['seniat.tabla.islr']
+            # Sumar solo las líneas con un residual mayor a cero y aplicar el signo en función del tipo de partner
+            rec.selected_debt = sum(
+                line.amount_residual for line in rec.to_pay_move_line_ids
+            ) * (-1.0 if rec.partner_type == 'supplier' else 1.0)
 
     @api.depends(
         'to_pay_move_line_ids.amount_residual',
-        'to_pay_move_line_ids.amount_residual_currency',
-        'to_pay_move_line_ids.currency_id',
         'to_pay_move_line_ids.move_id',
         'payment_date',
-        'currency_id',
     )
     def _compute_selected_debt_taxed(self):
+        """ Calcula el monto total de deuda que está sujeto a retenciones de IVA """
         for rec in self:
             selected_debt_taxed = 0.0
-            for line in rec.to_pay_move_line_ids._origin:
-                #this is conditional used to vat retention
-                for li in line.move_id.line_ids:
-                    if li.name == 'IVA (16.0%) compras':
-                        selected_debt_taxed += li.debit
-                    elif li.name == 'IVA (8.0%) compras':
-                        selected_debt_taxed += li.debit
+            for line in rec.to_pay_move_line_ids:
+                for tax_line in line.move_id.line_ids:
+                    if tax_line.name in ['IVA (16.0%) compras', 'IVA (8.0%) compras']:
+                        selected_debt_taxed += tax_line.debit
             rec.selected_debt_taxed = selected_debt_taxed
 
-    @api.depends(
-        'to_pay_move_line_ids.amount_residual',
-        'to_pay_move_line_ids.amount_residual_currency',
-        'to_pay_move_line_ids.currency_id',
-        'to_pay_move_line_ids.move_id',
-        'payment_date',
-        'currency_id',
-        'partner_id',
-        'selected_debt',
-    )
-    def _compute_selected_debt_financial(self):
+    @api.depends('partner_id.seniat_regimen_islr_ids')
+    def _compute_partner_regimen_islr(self):
+        """ Calcula los regímenes de ISLR aplicables si el partner es proveedor """
         for rec in self:
-            selected_finacial_debt = 0.0
-            selected_finacial_debt_currency = 0.0
-            for line in rec.to_pay_move_line_ids._origin:
-                # factor for total_untaxed
-                if line.move_id.currency_id.id != rec.company_id.currency_id.id:
-                    selected_finacial_debt_currency += line.amount_residual_currency
-                    rec.debt_multicurrency = True
-                    rec.selected_debt_currency_id = line.move_id.currency_id.id
-                elif line.move_id.currency_id.id != rec.company_id.currency_id.id and rec.debt_multicurrency:
-                    selected_finacial_debt_currency += line.amount_residual_currency
-                    rec.debt_multicurrency = True
-                else:
-                    rec.debt_multicurrency = False
-                if rec.debt_multicurrency:
-                    last_rate = 0
-                    last_rate = self.env['res.currency.rate'].search([
-                        ('currency_id', '=', rec.selected_debt_currency_id.id),
-                        ('name', '=', rec.payment_date)
-                    ], limit=1).rate
-                    if last_rate == 0:
-                        last_rate = self.env['res.currency.rate'].search([
-                            ('currency_id', '=', rec.selected_debt_currency_id.id),
-                        ], limit=1).rate
-                    if last_rate == 0:
-                        last_rate = 1
-                    rate = round((1 / last_rate), 4)
-                    finacial_debt_currency = selected_finacial_debt_currency*rate
-                    selected_finacial_debt += finacial_debt_currency
-                else:
-                    selected_finacial_debt += line.amount_residual
-                    #selected_debt += line.move_id.amount_residual
-            sign = rec.partner_type == 'supplier' and -1.0 or 1.0
-            rec.selected_finacial_debt = selected_finacial_debt * sign
-            rec.selected_finacial_debt_currency = selected_finacial_debt_currency * sign
+            rec.partner_regimen_islr_ids = (
+                rec.partner_id.seniat_regimen_islr_ids if rec.partner_type == 'supplier' 
+                else rec.env['seniat.tabla.islr']
+            )
 
-    @api.depends('selected_debt', 'debt_multicurrency','selected_finacial_debt', 'unreconciled_amount',)
+    @api.depends(
+        'selected_debt', 'unreconciled_amount'
+    )
     def _compute_to_pay_amount(self):
+        """ Calcula el monto total a pagar sumando `selected_debt` y `unreconciled_amount` """
         for rec in self:
-            if rec.selected_finacial_debt != rec.selected_debt:
-                rec.to_pay_amount = rec.selected_finacial_debt + rec.unreconciled_amount
-            else:
-                rec.to_pay_amount = rec.selected_debt + rec.unreconciled_amount
+            rec.to_pay_amount = rec.selected_debt + rec.unreconciled_amount
 
     @api.onchange('to_pay_amount')
     def _inverse_to_pay_amount(self):
+        """ Ajusta el monto de `unreconciled_amount` según el monto total a pagar (`to_pay_amount`) """
         for rec in self:
-            if rec.selected_finacial_debt != rec.selected_debt:
-                rec.unreconciled_amount = rec.to_pay_amount - rec.selected_finacial_debt
-            else:
-                rec.unreconciled_amount = rec.to_pay_amount - rec.selected_debt
+            rec.unreconciled_amount = rec.to_pay_amount - rec.selected_debt
+
+    def compute_withholdings(self):
+        """ Aplica la lógica de retención para proveedores """
+        for rec in self:
+            if rec.partner_type != 'supplier':
+                continue
+            self.env['account.tax'].with_context(type=None).search([
+                ('type_tax_use', '=', rec.partner_type),
+                ('company_id', '=', rec.company_id.id),
+            ]).create_payment_withholdings(rec)
+
+    def confirm(self):
+        """ Confirma el grupo de pagos y aplica retenciones automáticas si están habilitadas """
+        res = super(AccountPaymentGroup, self).confirm()
+        for rec in self:
+            if rec.company_id.automatic_withholdings:
+                rec.compute_withholdings()
+        return res

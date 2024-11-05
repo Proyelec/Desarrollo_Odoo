@@ -348,7 +348,10 @@ class AccountPaymentGroup(models.Model):
     @api.depends('to_pay_move_line_ids.amount_residual')
     def _compute_selected_debt(self):
         for rec in self:
-            rec.selected_debt = sum(rec.to_pay_move_line_ids._origin.mapped('amount_residual')) * (-1.0 if rec.partner_type == 'supplier' else 1.0)
+            # Sumar solo las líneas con un residual mayor a cero y aplicar el signo en función del tipo de partner
+            rec.selected_debt = sum(
+                line.amount_residual for line in rec.to_pay_move_line_ids
+            ) * (-1.0 if rec.partner_type == 'supplier' else 1.0)
 
     @api.depends(
         'selected_debt', 'unreconciled_amount')

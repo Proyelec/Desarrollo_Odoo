@@ -3,6 +3,7 @@
 
 from odoo import models, fields, api, _
 from odoo.exceptions import ValidationError
+from decimal import Decimal, ROUND_DOWN
 
 import logging
 _logger = logging.getLogger(__name__)
@@ -88,19 +89,44 @@ class AccountPayment(models.Model):
         for rec in self:
             rec.payment_method_description = rec.payment_method_id.display_name
 
-    @api.depends('amount_company_currency', 'payment_type')
+    tax_day = fields.Float(
+        string='Tasa del día', 
+        compute='_compute_tax_day',
+        help="Tasa de cambio del día en bolívares."
+    )
+
+    @api.depends('company_id')
+    def _compute_tax_day(self):
+        """
+        Computa la tasa del día basada en la moneda VEF de la compañía.
+        Si no hay tasa disponible, establece el valor en 1.00.
+        """
+        for payment in self:
+            res_currency = self.env['res.currency'].search([
+                ('name', '=', 'VEF'), ('active', '=', True)
+            ], limit=1)
+            if res_currency and res_currency.rate_ids:
+                latest_rate = res_currency.rate_ids.sorted('name', reverse=True)[:1]
+                payment.tax_day = Decimal(str(latest_rate.company_rate)).quantize(Decimal('1.00'), rounding=ROUND_DOWN)
+            else:
+                payment.tax_day = 1.00
+
+    @api.depends('journal_id', 'tax_day', 'payment_type', 'partner_type')
     def _compute_l10n_ar_amount_company_currency_signed(self):
-        """ new field similar to amount_company_currency_signed but:
-        1. is positive for payments to suppliers
-        2. we use the new field amount_company_currency instead of amount_total_signed, because amount_total_signed is
-        computed only after saving
-        We use l10n_ar prefix because this is a pseudo backport of future l10n_ar_withholding module """
+        """
+        Calcula el monto en moneda de la compañía. Si el diario es de ID 38 o 39,
+        divide `l10n_ar_amount_company_currency_signed` entre `tax_day`.
+        """
         for payment in self:
             if payment.payment_type == 'outbound' and payment.partner_type == 'customer' or \
-                    payment.payment_type == 'inbound' and payment.partner_type == 'supplier':
+               payment.payment_type == 'inbound' and payment.partner_type == 'supplier':
                 payment.l10n_ar_amount_company_currency_signed = -payment.amount_company_currency
             else:
                 payment.l10n_ar_amount_company_currency_signed = payment.amount_company_currency
+            
+            # Aplica la división solo si el journal_id es 38 o 39
+            if payment.journal_id.id in [38, 39] and payment.tax_day:
+                payment.l10n_ar_amount_company_currency_signed /= payment.tax_day
 
     @api.depends('currency_id')
     def _compute_other_currency(self):
