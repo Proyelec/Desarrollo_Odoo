@@ -124,9 +124,6 @@ class AccountPayment(models.Model):
             else:
                 payment.l10n_ar_amount_company_currency_signed = payment.amount_company_currency
             
-            # Aplica la división solo si el journal_id es 38 o 39
-            if payment.journal_id.id in [38, 39] and payment.tax_day:
-                payment.l10n_ar_amount_company_currency_signed /= payment.tax_day
 
     @api.depends('currency_id')
     def _compute_other_currency(self):
@@ -173,23 +170,27 @@ class AccountPayment(models.Model):
                 force_amount_company_currency = False
             rec.force_amount_company_currency = force_amount_company_currency
 
-    @api.depends('amount', 'other_currency', 'force_amount_company_currency')
+    @api.depends('amount', 'other_currency', 'force_amount_company_currency', 'currency_id')
     def _compute_amount_company_currency(self):
         """
-        * Si las monedas son iguales devuelve 1
-        * si no, si hay force_amount_company_currency, devuelve ese valor
-        * sino, devuelve el amount convertido a la moneda de la cia
+        * Si las monedas de deuda y pago son iguales, omite la conversión
+        * Si no, aplica la conversión habitual usando `force_amount_company_currency` si está presente
         """
         for rec in self:
-            if not rec.other_currency:
-                amount_company_currency = rec.amount
+            if rec.currency_id == rec.company_currency_id:
+                # Si la moneda de deuda y pago son iguales (ambos en VEF), no se realiza conversión
+                rec.amount_company_currency = rec.amount
+            elif not rec.other_currency:
+                # Si no hay diferencia de moneda, usa el monto directo
+                rec.amount_company_currency = rec.amount
             elif rec.force_amount_company_currency:
-                amount_company_currency = rec.force_amount_company_currency
+                # Si hay un monto forzado en la moneda de la compañía, úsalo
+                rec.amount_company_currency = rec.force_amount_company_currency
             else:
-                amount_company_currency = rec.currency_id._convert(
-                    rec.amount, rec.company_id.currency_id,
-                    rec.company_id, rec.date)
-            rec.amount_company_currency = amount_company_currency
+                # Conversión regular para otras monedas
+                rec.amount_company_currency = rec.currency_id._convert(
+                    rec.amount, rec.company_currency_id, rec.company_id, rec.date
+                )
 
     @api.model_create_multi
     def create(self, vals_list):

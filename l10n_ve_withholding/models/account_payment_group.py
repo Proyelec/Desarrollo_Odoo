@@ -28,17 +28,25 @@ class AccountPaymentGroup(models.Model):
     selected_debt = fields.Monetary(
         string='Selected Debt',
         compute='_compute_selected_debt',
+        currency_field='currency_id',
         store=True,
     )
 
-    @api.depends('to_pay_move_line_ids.amount_residual')
+    @api.depends('to_pay_move_line_ids.amount_residual', 'to_pay_move_line_ids.amount_residual_currency', 'to_pay_move_line_ids.currency_id')
     def _compute_selected_debt(self):
-        """ Calcula el total de la deuda seleccionada con signo dependiendo del tipo de partner """
         for rec in self:
-            # Sumar solo las líneas con un residual mayor a cero y aplicar el signo en función del tipo de partner
-            rec.selected_debt = sum(
-                line.amount_residual for line in rec.to_pay_move_line_ids
-            ) * (-1.0 if rec.partner_type == 'supplier' else 1.0)
+            selected_debt = 0.0
+            for line in rec.to_pay_move_line_ids:
+                # Asegura que se use la moneda de la factura y ajuste el monto residual
+                if line.currency_id == rec.currency_id:
+                    selected_debt += line.amount_residual
+                else:
+                    selected_debt += line.amount_residual_currency
+            
+            # Ajuste de signo según el tipo de partner
+            rec.selected_debt = selected_debt * (-1.0 if rec.partner_type == 'supplier' else 1.0)
+            # Establecer la moneda en `currency_id` para reflejar la de la factura
+            rec.currency_id = rec.to_pay_move_line_ids[0].currency_id if rec.to_pay_move_line_ids else rec.currency_id
 
     @api.depends(
         'to_pay_move_line_ids.amount_residual',

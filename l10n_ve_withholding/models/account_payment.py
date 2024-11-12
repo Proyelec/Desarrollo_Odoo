@@ -15,20 +15,23 @@ class AccountPayment(models.Model):
         return vals
 
     @api.onchange('journal_id')
-    def _onchange_compute_amount_currency(self):
+    def _onchange_journal_id(self):
         for rec in self:
-            if rec.other_currency and rec.payment_group_id:
-                if rec.payment_group_id.payments_amount <= 0:
-                    rec.amount = rec.payment_group_id.selected_debt  # Cambiado a selected_debt
-                elif rec.payment_group_id and rec.payment_group_id.payments_amount > 0:
-                    payments_amount = rec.payment_group_id.selected_debt - rec.payment_group_id.payments_amount
-                    rec.amount = rec.company_id.currency_id._convert(
-                        payments_amount, rec.currency_id, rec.company_id, rec.date)
-            elif not rec.other_currency and rec.payment_group_id:
-                rec.amount = rec.payment_group_id.selected_debt  # Cambiado a selected_debt
-                if rec.payment_group_id and rec.payment_group_id.payments_amount > 0:
-                    payments_amount = rec.payment_group_id.payments_amount - rec.amount
-                    rec.amount = rec.payment_group_id.selected_debt - payments_amount
+            # Verifica si la moneda del diario es diferente a la moneda de la deuda
+            if rec.journal_id.currency_id and rec.payment_group_id:
+                if rec.payment_group_id.currency_id == rec.journal_id.currency_id:
+                    # Caso 2: La moneda de la deuda (VEF) y el diario (VEF) son iguales
+                    # El monto permanece igual
+                    rec.amount = rec.payment_group_id.selected_debt
+                elif rec.payment_group_id.currency_id.name == 'VEF' and rec.journal_id.currency_id.name == 'USD':
+                    # Caso 1: Deuda en VEF y diario en USD -> dividir el monto entre la tasa
+                    rec.amount = rec.payment_group_id.selected_debt / rec.tax_day if rec.tax_day else rec.payment_group_id.selected_debt
+                elif rec.payment_group_id.currency_id.name == 'USD' and rec.journal_id.currency_id.name == 'VEF':
+                    # Caso 3: Deuda en USD y diario en VEF -> multiplicar el monto por la tasa
+                    rec.amount = rec.payment_group_id.selected_debt * rec.tax_day if rec.tax_day else rec.payment_group_id.selected_debt
+            else:
+                # Si no hay moneda en el diario, asumir la moneda base de la compañía
+                rec.amount = rec.payment_group_id.selected_debt
 
     @api.onchange('date')
     def _onchange_compute_amount_currency_date(self):

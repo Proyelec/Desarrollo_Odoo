@@ -338,20 +338,32 @@ class AccountPaymentGroup(models.Model):
             #     continue
             rec.payment_difference = rec.to_pay_amount - rec.payments_amount
 
-    @api.depends('payment_ids.l10n_ar_amount_company_currency_signed')
+    @api.depends('payment_ids.amount_signed')
     def _compute_payments_amount(self):
         for rec in self:
-            # this hac is to make it work when creating payment groups with payments without saving + saved records
-            rec.payments_amount = sum((rec._origin.payment_ids + rec.payment_ids.filtered(lambda x: not x.ids)).mapped(
-                'l10n_ar_amount_company_currency_signed'))
+            # Cálculo del monto de pagos sumando tanto los pagos sin guardar como los guardados
+            payments = rec._origin.payment_ids + rec.payment_ids.filtered(lambda x: not x.ids)
+            payments_amount = sum(payments.mapped('amount_signed'))
+            
+            # Verifica si el partner es de tipo 'supplier' y establece el monto en positivo
+            if rec.partner_type == 'supplier':
+                rec.payments_amount = abs(payments_amount)
+            else:
+                rec.payments_amount = payments_amount
 
-    @api.depends('to_pay_move_line_ids.amount_residual')
+    @api.depends('to_pay_move_line_ids.amount_residual', 'to_pay_move_line_ids.currency_id')
     def _compute_selected_debt(self):
         for rec in self:
-            # Sumar solo las líneas con un residual mayor a cero y aplicar el signo en función del tipo de partner
-            rec.selected_debt = sum(
-                line.amount_residual for line in rec.to_pay_move_line_ids
-            ) * (-1.0 if rec.partner_type == 'supplier' else 1.0)
+            rec.selected_debt = 0.0
+            for line in rec.to_pay_move_line_ids:
+                if line.currency_id == rec.currency_id:
+                    # Si la moneda coincide, usamos el residual directamente
+                    rec.selected_debt += line.amount_residual
+                else:
+                    # Si la moneda no coincide, convertimos usando amount_residual_currency
+                    rec.selected_debt += line.amount_residual_currency
+            # Ajuste de signo según el tipo de partner
+            rec.selected_debt *= -1.0 if rec.partner_type == 'supplier' else 1.0
 
     @api.depends(
         'selected_debt', 'unreconciled_amount')
