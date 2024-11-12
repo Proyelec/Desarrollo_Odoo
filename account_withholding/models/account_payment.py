@@ -12,19 +12,16 @@ class AccountPayment(models.Model):
     tax_withholding_id = fields.Many2one(
         'account.tax',
         string='Withholding Tax',
-        readonly=True,
-        states={'draft': [('readonly', False)]},
+        readonly=False
     )
     withholding_number = fields.Char(
-        readonly=True,
-        states={'draft': [('readonly', False)]},
+        readonly=False,
         help="If you don't set a number we will add a number automatically "
         "from a sequence that should be configured on the Withholding Tax"
     )
     withholding_base_amount = fields.Monetary(
         string='Withholding Base Amount',
-        readonly=True,
-        states={'draft': [('readonly', False)]},
+        readonly=False
     )
 
     def _get_valid_liquidity_accounts(self):

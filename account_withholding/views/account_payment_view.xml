@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?> 
 <odoo>
     <record id="view_account_payment_form" model="ir.ui.view">
         <field name="name">account.payment.form.inherited</field>
@@ -10,15 +10,10 @@
                     <group name="withholding_data">
                         <field 
                             name="tax_withholding_id"  
-                            options="{'no_create': True, 'no_open': True}" 
-                            domain="[('type_tax_use', '=', partner_type), ('company_id', '=', company_id)]"
-                            required="payment_method_code == 'withholding'" 
-                       />
-                        <field name="withholding_number"/>
-                        <field 
-                            name="withholding_base_amount" 
-                            required="payment_method_code == 'withholding'" 
+                            options="{'no_create': True, 'no_open': True}"
                         />
+                        <field name="withholding_number"/>
+                        <field name="withholding_base_amount"/>
                     </group>
                 </div>
             </field>
