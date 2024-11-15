@@ -24,7 +24,7 @@
     'version': '17.0',
 
     # any module necessary for this one to work correctly
-    'depends': ['base', 'account', 'purchase','account_payment_group','l10n_ve_withholding'],
+    'depends': ['base', 'account', 'purchase','account_payment_group','l10n_ve_withholding','l10n_ve_dual_currency_bs'],
 
     # always loaded
     'data': [

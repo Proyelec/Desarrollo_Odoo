@@ -110,30 +110,50 @@ class TaxWithholdingIVAReport(models.AbstractModel):
     _inherit = 'report.tax_withholdings.mixin'
 
     def extract_data(self, record):
-        data = {
-            "aliquot": record.aliquot_iva,
-            "amount_tax": record.amount_tax_iva,
-            "amount_base": record.amount_untaxed - record.vat_exempt_amount_iva,
-            "amount_total": record.amount_total_iva,
-            "amount_withholding": record.withholding_opp_iva,
-            "vat_exempt_amount": record.vat_exempt_amount_iva,
-            "total_purchase": record.amount_total_purchase,
-            "l10n_ve_document_number": record.l10n_ve_document_number
-        }
+        # Verificamos si la moneda de la factura es distinta de VEF
+        if record.currency_id.name != 'VEF':
+            factor = record.tax_day or 1  # Usamos tax_date como factor de multiplicación, si está definido
+            data = {
+                "aliquot": record.aliquot_iva,
+                "amount_tax": record.amount_tax_iva * factor,
+                "amount_base": (record.amount_untaxed - record.vat_exempt_amount_iva) * factor,
+                "amount_total": record.amount_total_iva * factor,
+                "amount_withholding": record.withholding_opp_iva * factor,
+                "vat_exempt_amount": record.vat_exempt_amount_iva * factor,
+                "total_purchase": record.amount_total_purchase * factor,
+                "l10n_ve_document_number": record.l10n_ve_document_number
+            }
+        else:
+            # Si la moneda es VEF, dejamos los valores sin modificar
+            data = {
+                "aliquot": record.aliquot_iva,
+                "amount_tax": record.amount_tax_iva,
+                "amount_base": record.amount_untaxed - record.vat_exempt_amount_iva,
+                "amount_total": record.amount_total_iva,
+                "amount_withholding": record.withholding_opp_iva,
+                "vat_exempt_amount": record.vat_exempt_amount_iva,
+                "total_purchase": record.amount_total_purchase,
+                "l10n_ve_document_number": record.l10n_ve_document_number
+            }
+
+        # Resto de la lógica sin cambios
         if record.sequence_withholding_iva:
             data["number_withholding"] = record.withholding_number
         else:
             data["number_withholding"] = _('To be defined')
+
         data["company_street"] = ' '.join([
             self.env.company.street or '',
             self.env.company.street2 or ''
         ]).upper().strip()
+
         return data
 
     def validate_record(self, record):
         super().validate_record(record)
         if (record.withholding_iva or 0.0) >= 0.0:
             raise UserError(_("This invoice has no withholding tax"))
+
 
 
 class TaxWithholdingISLRReport(models.AbstractModel):
