@@ -209,6 +209,45 @@ class AccountMoveWithHoldings(models.Model):
         copy=False,
         readonly=True,
     )
+    taxable_base_amount = fields.Monetary(
+        string="Taxable Base Amount",
+        compute="compute_taxable_and_exempt_amounts",
+        store=True,
+        currency_field="company_currency_id",
+    )
+
+    vat_exempt_amount = fields.Monetary(
+    string="VAT Exempt Amount",
+    compute="compute_taxable_and_exempt_amounts",
+    store=True,
+    currency_field="company_currency_id",
+    )
+
+
+    def compute_taxable_and_exempt_amounts(self):
+        """
+        Calcula el monto base imponible y el monto exento de impuestos.
+        Retorna un diccionario con los valores calculados para cada registro.
+        """
+        for record in self:
+            vat_exempt_amount = 0.0
+            taxable_base_amount = 0.0
+
+            for line in record.line_ids:
+                # Excluir líneas sin impacto financiero
+                if line.display_type not in ('line_section', 'line_note'):
+                    # Verificar si es exenta
+                    if not line.tax_ids or all(tax.amount == 0.0 for tax in line.tax_ids):
+                        vat_exempt_amount += line.price_subtotal
+                    else:
+                        # Verificar si el impuesto es del 16% o 8%
+                        for tax in line.tax_ids:
+                            if tax.amount in [16.0, 8.0]:
+                                taxable_base_amount += line.price_subtotal
+                                break
+
+            record.taxable_base_amount = taxable_base_amount
+            record.vat_exempt_amount = vat_exempt_amount
 
     @api.depends(
         'invoice_tax_id',
@@ -461,3 +500,25 @@ class AccountMoveWithHoldings(models.Model):
             other_moves._post(soft=False)
 
         return False
+    
+    
+class AccountMoveLineWithTaxInfo(models.Model):
+    _inherit = "account.move.line"
+
+    tax_percentage = fields.Float(
+        string="Tax Percentage",
+        compute="_compute_tax_percentage",
+        store=True,
+    )
+
+    @api.depends('tax_ids')
+    def _compute_tax_percentage(self):
+        """
+        Calcula el porcentaje de impuestos aplicado a la línea de factura.
+        Si hay más de un impuesto, suma los porcentajes.
+        """
+        for line in self:
+            if line.tax_ids:
+                line.tax_percentage = sum(tax.amount for tax in line.tax_ids)
+            else:
+                line.tax_percentage = 0.0

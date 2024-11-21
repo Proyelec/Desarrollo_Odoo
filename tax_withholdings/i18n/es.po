@@ -467,7 +467,7 @@ msgstr "Total retenido"
 #: code:addons/tax_withholdings/models/account_tax.py:0
 #, python-format
 msgid "Untaxed Amount"
-msgstr "Subtotal"
+msgstr "Importe no tributado"
 
 #  #. module: tax_withholdings
 #  #: model:ir.exports,name:tax_withholdings.withholding_iva_export

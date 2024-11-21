@@ -110,28 +110,34 @@ class TaxWithholdingIVAReport(models.AbstractModel):
     _inherit = 'report.tax_withholdings.mixin'
 
     def extract_data(self, record):
-        # Verificamos si la moneda de la factura es distinta de VEF
+        # Verificamos si la moneda de la factura es distinta de VEF}
+        aliquots = [
+            line.tax_percentage for line in record.line_ids if line.tax_percentage > 0
+        ]
+        # Toma el primer porcentaje si existe, o usa 0.0 por defecto
+        aliquot_value = aliquots[0] if aliquots else 0.0
+
         if record.currency_id.name != 'VEF':
             factor = record.tax_day or 1  # Usamos tax_date como factor de multiplicación, si está definido
             data = {
-                "aliquot": record.aliquot_iva,
+                "aliquot": aliquot_value,
                 "amount_tax": record.amount_tax_iva * factor,
-                "amount_base": (record.amount_untaxed - record.vat_exempt_amount_iva) * factor,
+                "amount_base": record.taxable_base_amount * factor,
                 "amount_total": record.amount_total_iva * factor,
                 "amount_withholding": record.withholding_opp_iva * factor,
-                "vat_exempt_amount": record.vat_exempt_amount_iva * factor,
+                "vat_exempt_amount": record.vat_exempt_amount * factor,
                 "total_purchase": record.amount_total_purchase * factor,
                 "l10n_ve_document_number": record.l10n_ve_document_number
             }
         else:
             # Si la moneda es VEF, dejamos los valores sin modificar
             data = {
-                "aliquot": record.aliquot_iva,
+                "aliquot": aliquot_value,
                 "amount_tax": record.amount_tax_iva,
-                "amount_base": record.amount_untaxed - record.vat_exempt_amount_iva,
+                "amount_base": record.taxable_base_amount,
                 "amount_total": record.amount_total_iva,
                 "amount_withholding": record.withholding_opp_iva,
-                "vat_exempt_amount": record.vat_exempt_amount_iva,
+                "vat_exempt_amount": record.vat_exempt_amount,
                 "total_purchase": record.amount_total_purchase,
                 "l10n_ve_document_number": record.l10n_ve_document_number
             }
