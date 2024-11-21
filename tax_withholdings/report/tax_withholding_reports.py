@@ -54,6 +54,7 @@ class MixinTaxWithholdingReport(models.AbstractModel):
         'company_vat',
         'vendor_name',
         'vendor_vat',
+        'vendor_address',
         'accounting_date',
         'tsc_tax_withholding_date',
         'number_withholding',
@@ -67,8 +68,18 @@ class MixinTaxWithholdingReport(models.AbstractModel):
         return {
             'company_name': self.env.company.name.upper(),
             'company_vat': record.withholding_agent_vat,
+            'company_vat': f"{self.env.company.partner_id.l10n_latam_identification_type_id.l10n_ve_code or ''}-{self.env.company.vat or ''}",
             'vendor_name': record.partner_id.name.upper(),
-            'vendor_vat': record.retained_subject_vat,
+            'vendor_address': ', '.join(filter(None, [
+                record.partner_id.street,
+                record.partner_id.street2,
+                record.partner_id.city,
+                record.partner_id.state_id.name,
+                record.partner_id.zip,
+                record.partner_id.country_id.name
+            ])).upper(),
+            'vendor_vat': f"{record.partner_id.l10n_latam_identification_type_id.l10n_ve_code or ''}-{record.retained_subject_vat or ''}",
+            'vendor_l10n_ve_code': record.partner_id.l10n_latam_identification_type_id.l10n_ve_code or '',
             'invoice_date': record.invoice_date,
             'accounting_date': record.date or record.invoice_date or self.now(),
             'tsc_tax_withholding_date': record.tsc_tax_withholding_date,

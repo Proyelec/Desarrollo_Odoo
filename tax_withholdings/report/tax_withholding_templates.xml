@@ -110,8 +110,10 @@
                                     style="border-bottom: 1px solid black; border-right: 1px solid black; border-left: 1px solid black;">
                                     <td colspan="8">
                                         <span>Nombre o Razón Social del Sujeto Retenido:</span>
-                                        <br />
-                                        <b t-out="r.vendor_name" />
+                                            <br />
+                                            <b t-out="r.vendor_name" />
+                                            <br />
+                                            <span t-out="r.vendor_address" />
                                     </td>
                                     <td colspan="7" style="text-align: center;">
                                         <span>Número de RIF del Proveedor:</span>
