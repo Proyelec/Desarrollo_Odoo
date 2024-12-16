@@ -133,22 +133,23 @@ class TaxWithholdingIVAReport(models.AbstractModel):
             data = {
                 "aliquot": aliquot_value,
                 "amount_tax": record.amount_tax_iva * factor,
-                "amount_base": record.taxable_base_amount * factor,
+                "amount_base": (record.amount_total_purchase - (record.x_Base_Exenta / factor) - record.amount_tax_iva) * factor,
                 "amount_total": record.amount_total_iva * factor,
                 "amount_withholding": record.withholding_opp_iva * factor,
-                "vat_exempt_amount": record.vat_exempt_amount * factor,
+                "vat_exempt_amount": record.x_Base_Exenta / factor,
                 "total_purchase": record.amount_total_purchase * factor,
                 "l10n_ve_document_number": record.l10n_ve_document_number
             }
         else:
+            factor = record.tax_day or 1  # Usamos tax_date como factor de multiplicación, si está definido
             # Si la moneda es VEF, dejamos los valores sin modificar
             data = {
                 "aliquot": aliquot_value,
                 "amount_tax": record.amount_tax_iva,
-                "amount_base": record.taxable_base_amount,
+                "amount_base": record.amount_total_purchase - record.x_Base_Exenta - record.amount_tax_iva,
                 "amount_total": record.amount_total_iva,
                 "amount_withholding": record.withholding_opp_iva,
-                "vat_exempt_amount": record.vat_exempt_amount,
+                "vat_exempt_amount": record.x_Base_Exenta,
                 "total_purchase": record.amount_total_purchase,
                 "l10n_ve_document_number": record.l10n_ve_document_number
             }
