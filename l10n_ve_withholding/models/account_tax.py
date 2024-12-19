@@ -17,13 +17,13 @@ class AccountTax(models.Model):
         selection_add=([
             ('partner_tax', 'Alícuota en el Partner'),
         ]), ondelete={'partner_tax': 'set default'}
-    )
-    withholding_type = fields.Selection(
-        selection_add=([
-            ('tabla_islr', 'Tabla ISLR'),
-            ('partner_tax', 'Alícuota en el Partner'),
-        ]), ondelete={'tabla_islr': 'set default', 'partner_tax': 'set default'}
-    )
+    ),
+    # withholding_type = fields.Selection(
+    #     selection_add=([
+    #         ('tabla_islr', 'Tabla ISLR'),
+    #         ('partner_tax', 'Alícuota en el Partner'),
+    #     ]), ondelete={'tabla_islr': 'set default', 'partner_tax': 'set default'}
+    # )
 
     def get_withholding_vals(self, payment_group):
         commercial_partner = payment_group.commercial_partner_id
