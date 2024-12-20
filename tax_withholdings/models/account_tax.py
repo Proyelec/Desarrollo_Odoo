@@ -12,22 +12,12 @@ class AccountTax(models.Model):
     _inherit = "account.tax"
 
     withholding_type = fields.Selection(
-        selection_add=([
+        selection=[
             ("iva", "VAT withholding"),
-            ('tabla_islr', 'Tabla ISLR'),
-            ('partner_tax', 'Alícuota en el Partner'),
-            ("none", "No withholding"),
-        ]),
-        ondelete={
-            'iva': 'set default',
-            'tabla_islr': 'set default',
-            'partner_tax': 'set default',
-            'none': 'set default',
-        },
-        default="none",  # Define un valor predeterminado para el campo
+            ("none", "No withholding"),  # Agrega esta línea
+        ],
         string="Type retention"
     )
-
 
     @api.model
     def _prepare_tax_totals(self, base_lines, currency, tax_lines=None, **kwargs):
