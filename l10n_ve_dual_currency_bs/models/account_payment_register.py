@@ -9,13 +9,17 @@ class InhAccountPaymentRegister(models.TransientModel):
 
     currency_ref_id = fields.Many2one('res.currency', string='Currency', default=lambda self: self.env.ref('base.VEF'))
 
-    @api.model
     def getRate(self):
-        account_move = self.env['account.move'].browse(self._context.get('active_ids', []))
-        if account_move and account_move.tax_day:
-            return round(account_move.tax_day , 3) 
-        else :
-            return   1.00
+        # Iterar sobre los registros de account.move
+        for account_move in self:
+            # Asegurarse de que tax_day existe y ejecutar la lógica deseada
+            if account_move.tax_day:
+                # Aquí puedes añadir la lógica necesaria, por ejemplo:
+                rate = account_move.tax_day  # Ejemplo: obtener la tasa
+                # Procesar el campo tax_day según tus necesidades
+                return rate  # Retorna el valor si es necesario para un solo registro
+        # Opcional: Devuelve un valor por defecto si no se encuentra tax_day
+        return 1
         
     tax_day  = fields.Float(
         string='Tasa del día',
