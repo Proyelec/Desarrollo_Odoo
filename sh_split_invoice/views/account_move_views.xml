@@ -7,25 +7,25 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='invoice_line_ids']//tree//field[@name='product_id']" position="before">
                 <button name="btn_tick_untick" type="object" class="oe_stat_button btn-primary"
-                    string="Tick/Untick" groups="sh_split_invoice.group_split_invoice"
+                    string="Tildar/Destildar" groups="sh_split_invoice.group_split_invoice"
                     column_invisible="parent.state != 'draft'" ></button>
                 <field name="tick" groups="sh_split_invoice.group_split_invoice"
                     readonly="parent.state != 'draft'" />
             </xpath>
             <xpath expr="//field[@name='line_ids']//tree//field[@name='account_id']" position="before">
                 <button name="btn_tick_untick" type="object" class="oe_stat_button btn-primary"
-                    string="Tick/Untick" groups="sh_split_invoice.group_split_invoice"
+                    string="Tildar/Destildar" groups="sh_split_invoice.group_split_invoice"
                     column_invisible="parent.state != 'draft'" />
                 <field name="tick" groups="sh_split_invoice.group_split_invoice"
                     readonly="parent.state != 'draft'" />
             </xpath>
             <xpath expr="//header/button[@name='button_cancel']" position="after">
                 <button name="action_split" invisible="state != 'draft'" type="object"
-                    string="Split" groups="sh_split_invoice.group_split_invoice" />
+                    string="Dividir" groups="sh_split_invoice.group_split_invoice" />
             </xpath>
             <xpath expr="//header/button[@name='button_cancel']" position="after">
                 <button name="action_extract" invisible="state != 'draft'" type="object"
-                    string="Extract" groups="sh_split_invoice.group_split_invoice" />
+                    string="Extraer" groups="sh_split_invoice.group_split_invoice" />
             </xpath>
             <xpath expr="//field[@name='invoice_line_ids']" position="before">
                 <div class="o_row" style="margin: 15px 0;">
@@ -41,12 +41,12 @@
                 <button name="action_view_extract_invoice" type="object" class="oe_stat_button"
                     groups="sh_split_invoice.group_split_invoice" icon="fa-file-archive-o"
                     invisible="extract_count == 0" >
-                    <field name="extract_count" widget="statinfo" string="Extracted" />
+                    <field name="extract_count" widget="statinfo" string="Extraído" />
                 </button>
                 <button name="action_view_split_invoice" type="object" class="oe_stat_button"
                     groups="sh_split_invoice.group_split_invoice" icon="fa-chain-broken"
                     invisible="split_count == 0">
-                    <field name="split_count" widget="statinfo" string="Splited" />
+                    <field name="split_count" widget="statinfo" string="Dividido" />
                 </button>
             </xpath>
         </field>

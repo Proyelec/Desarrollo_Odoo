@@ -6,7 +6,7 @@
         <field name="arch" type="xml">
             <form string="Split Invoice/Bill/Credit Note/Debit Note">
                 <notebook>
-                    <page string="Split Lines" name="split_line_ids">
+                    <page string="Dividir Líneas" name="split_line_ids">
                         <field name="split_line_ids" widget="section_and_note_one2many" mode="tree" >
                             <tree editable="bottom" create="false" delete="false">
                                 <field name="product_id" readonly="1" force_save="1" required="1"/>
@@ -16,8 +16,8 @@
                     </page>
                 </notebook>
                 <footer>
-                    <button string="Split" type="object" name="action_split" class="btn-primary" />or
-                    <button name="cancel" string="Cancel" special="cancel" class="oe_link" />
+                    <button string="Dividir" type="object" name="action_split" class="btn-primary" />or
+                    <button name="cancel" string="Cancelar" special="cancel" class="oe_link" />
                 </footer>
             </form>
         </field>
