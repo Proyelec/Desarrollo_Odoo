@@ -124,19 +124,19 @@
                                 <tr class="full-borders">
                                     <td>Oper. Nro.</td>
                                     <td>Fecha de la Factura ND/NC</td>
-                                    <td>Nro.de Retención:</td>
-                                    <td>Nro de Factura:</td>
+                                    <!-- <td>Nro.de Retención:</td> -->
+                                    <td colspan="3">Nro de Factura:</td>
                                     <td>Nro de Control de Factura:</td>
                                     <td>Nro de Nota de Crédito:</td>
                                     <td>Nro de Nota de Débito:</td>
-                                    <td>Tipo de Transacción</td>
+                                    <!-- <td>Tipo de Transacción</td> -->
                                     <td>Factura Afectada</td>
                                     <td>Total Compras Incluyendo IVA</td>
                                     <td>Compras sin derecho a Crédito</td>
-                                    <td>Base Imponible</td>
-                                    <td>% Alicuota</td>
-                                    <td>Impuesto I.V.A.</td>
-                                    <td>I.V.A. Retenido</td>
+                                    <td colspan="1">Base Imponible</td>
+                                    <td colspan="1">% Alicuota</td>
+                                    <td colspan="1">Impuesto I.V.A.</td>
+                                    <td colspan="1">I.V.A. Retenido</td>
                                 </tr>
                                 <t t-set="total_purchase" t-value="0" />
                                 <t t-set="vat_exempt_amount" t-value="0" />
@@ -148,12 +148,12 @@
                                 <tr t-foreach="r.invoices" t-as="i" class="full-borders">
                                     <td t-out="i_index + 1" />
                                     <td t-out="i.invoice_date.strftime('%d/%m/%Y')" />
-                                    <td t-out="i.number_withholding" />
-                                    <td t-out="i.reference_number" />
+                                    <!-- <td t-out="i.number_withholding" /> -->
+                                    <td colspan="3" t-out="i.reference_number" />
                                     <td t-out="i.l10n_ve_document_number" />
                                     <td></td>
                                     <td></td>
-                                    <td>RET</td>
+                                    <!-- <td>RET</td> -->
                                     <td></td>
                                     <td>
                                         <t t-out="f(i.total_purchase)" />
@@ -226,8 +226,11 @@
                             <table class="table-borderless">
                                 <tbody>
                                     <tr style="text-align: center;">
-                                        <td
-                                            style="width: 30%; border-top: 1px solid black; border-collapse: separate;">
+                                        <!-- Imagen encima de la firma -->
+                                        <!-- <img src="/tax_withholdings/static/description/firma_sello_retencion.jpg" 
+                                            alt="Firma y Sello" 
+                                            style="max-width: 100px; max-height: 100px; display: block; margin: 0 auto;" />
+                                        <td style="width: 30%; border-top: 1px solid black; border-collapse: separate; text-align: center;"> -->
                                             <b>Firma del Agente de Retención:</b>
                                         </td>
                                         <td style="width: 30%;"></td>
