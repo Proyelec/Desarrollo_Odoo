@@ -229,8 +229,8 @@
                                         <!-- Imagen encima de la firma -->
                                         <!-- <img src="/tax_withholdings/static/description/firma_sello_retencion.jpg" 
                                             alt="Firma y Sello" 
-                                            style="max-width: 100px; max-height: 100px; display: block; margin: 0 auto;" />
-                                        <td style="width: 30%; border-top: 1px solid black; border-collapse: separate; text-align: center;"> -->
+                                            style="max-width: 100px; max-height: 100px; display: block; margin: 0 auto;" /> -->
+                                        <td style="width: 30%; border-top: 1px solid black; border-collapse: separate; text-align: center;">
                                             <b>Firma del Agente de Retención:</b>
                                         </td>
                                         <td style="width: 30%;"></td>
