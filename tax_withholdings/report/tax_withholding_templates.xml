@@ -226,17 +226,22 @@
                             <table class="table-borderless">
                                 <tbody>
                                     <tr style="text-align: center;">
-                                        <!-- Imagen encima de la firma -->
-                                        <!-- <img src="/tax_withholdings/static/description/firma_sello_retencion.jpg" 
-                                            alt="Firma y Sello" 
-                                            style="max-width: 100px; max-height: 100px; display: block; margin: 0 auto;" /> -->
-                                        <td style="width: 30%; border-top: 1px solid black; border-collapse: separate; text-align: center;">
-                                            <b>Firma del Agente de Retención:</b>
+                                        <td style="width: 30%; text-align: center; position: relative;">
+                                            <!-- Imagen ajustada hacia la izquierda -->
+                                            <img src="/tax_withholdings/static/description/FIRMA_SELLO_RETENCION_SIN_FONDO.png" 
+                                                alt="Firma y Sello" 
+                                                style="max-width: 128px; max-height: 64px; position: absolute; top: -40px; left: 35%; transform: translateX(-50%);" />
+                                            <!-- Línea y texto -->
+                                            <div style="border-top: 1px solid black; margin-top: 30px; padding-top: 10px;">
+                                                <b>Firma del Agente de Retención:</b>
+                                            </div>
                                         </td>
                                         <td style="width: 30%;"></td>
-                                        <td
-                                            style="width: 30%; border-top: 1px solid black; border-collapse: separate;">
-                                            <b>Fecha de Recibo y Firma del Receptor:</b>
+                                        <td style="width: 30%; text-align: center;">
+                                            <!-- Línea más cercana al texto -->
+                                            <div style="margin-top: 10px; border-top: 1px solid black; padding-top: 5px;">
+                                                <b>Fecha de Recibo y Firma del Receptor:</b>
+                                            </div>
                                         </td>
                                     </tr>
                                 </tbody>
