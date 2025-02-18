@@ -134,10 +134,10 @@ class TaxWithholdingIVAReport(models.AbstractModel):
                 "aliquot": aliquot_value,
                 "amount_tax": record.amount_tax_iva * factor,
                 "amount_base": (record.amount_total_purchase - (record.x_Base_Exenta / factor) - record.amount_tax_iva) * factor,
-                "amount_total": record.amount_total_iva * factor,
+                "amount_total": record.amount_tax_bs,
                 "amount_withholding": record.withholding_opp_iva * factor,
                 "vat_exempt_amount": record.x_Base_Exenta / factor,
-                "total_purchase": record.amount_total_purchase * factor,
+                "total_purchase": record.amount_total_bs,
                 "l10n_ve_document_number": record.l10n_ve_document_number
             }
         else:
