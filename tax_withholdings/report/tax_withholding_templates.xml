@@ -209,7 +209,7 @@
                                         </u>
                                     </td>
                                     <td>
-                                        <b t-out="f(amount_total)" />
+                                        <b t-out="f(total_purchase - amount_withholding)" />
                                     </td>
                                 </tr>
                             </tbody>
