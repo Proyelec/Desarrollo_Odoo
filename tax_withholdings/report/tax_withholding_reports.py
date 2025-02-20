@@ -150,7 +150,7 @@ class TaxWithholdingIVAReport(models.AbstractModel):
                 "amount_total": record.amount_total_iva,
                 "amount_withholding": record.withholding_opp_iva,
                 "vat_exempt_amount": record.x_Base_Exenta,
-                "total_purchase": record.amount_total_purchase + (record.withholding_iva * -1),
+                "total_purchase": record.amount_total + (record.withholding_iva * -1),
                 "l10n_ve_document_number": record.l10n_ve_document_number
             }
 
