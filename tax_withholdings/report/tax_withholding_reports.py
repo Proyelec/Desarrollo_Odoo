@@ -145,7 +145,7 @@ class TaxWithholdingIVAReport(models.AbstractModel):
             # Si la moneda es VEF, dejamos los valores sin modificar
             data = {
                 "aliquot": aliquot_value,
-                "amount_tax": record.amount_tax_iva,
+                "amount_tax": record.x_Monto_iva,
                 "amount_base": record.amount_total_purchase - record.x_Base_Exenta - record.amount_tax_iva,
                 "amount_total": record.amount_total_iva,
                 "amount_withholding": record.withholding_opp_iva,
