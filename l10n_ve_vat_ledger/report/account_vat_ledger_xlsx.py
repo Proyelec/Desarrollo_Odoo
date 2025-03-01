@@ -99,13 +99,16 @@ class AccountVatLedgerXlsx(models.AbstractModel):
 
             line = workbook.add_format({
                 'border': 1,
-                'align': 'center'})
+                'align': 'center',
+                'num_format': '#,##0.00'
+                })
 
             line_total = workbook.add_format({
                 'border': 1,
                 'fg_color': '#f0f0f0',
                 'bold': 1,
-                'align': 'center'})
+                'align': 'center',
+                'num_format': '#,##0.00'})
 
             date_line = workbook.add_format(
                 {'border': 1, 'num_format': 'dd-mm-yyyy',
@@ -174,20 +177,20 @@ class AccountVatLedgerXlsx(models.AbstractModel):
                 sheet.write(4, 15, 'Imp. I.V.A.', cell_format)
 
                 # # IVA RETENIDO
-                sheet.merge_range('Q4:Z4', 'Compras Internas', cell_format)
+                sheet.merge_range('Q4:W4', 'Compras Internas', cell_format)
                 sheet.write(4, 16, 'Base Imponible', cell_format)
-                sheet.write(4, 17, 'Alicuota 16% + Alicuota Adicional', cell_format)
+                sheet.write(4, 17, 'Alicuota 16%', cell_format)
                 sheet.write(4, 18, 'Imp. I.V.A.', cell_format)
                 sheet.write(4, 19, 'B. Imponible', cell_format)
                 sheet.write(4, 20, 'Alicuota 8%', cell_format)
                 sheet.write(4, 21, 'Imp. I.V.A.', cell_format)
 
-                sheet.write(4, 22, 'B. Imponible', cell_format)
-                sheet.write(4, 23, 'Alicuota 31%', cell_format)
-                sheet.write(4, 24, 'Imp. I.V.A.', cell_format)
+                # sheet.write(4, 22, 'B. Imponible', cell_format)
+                # sheet.write(4, 23, 'Alicuota 31%', cell_format)
+                # sheet.write(4, 24, 'Imp. I.V.A.', cell_format)
 
-                sheet.write(4, 25, 'I.V.A. Retenido por el comprador', cell_format)
-                sheet.write(4, 26, 'I.G.T.F Pagado  ', cell_format)
+                sheet.write(4, 22, 'I.V.A. Retenido por el comprador', cell_format)
+                # sheet.write(4, 26, 'I.G.T.F Pagado  ', cell_format)
 
             elif obj.type == 'sale':
 
@@ -266,21 +269,21 @@ class AccountVatLedgerXlsx(models.AbstractModel):
             total_iva_15_igtf = 0.00
             alic = ''
 
-            total_base_imponible_31 = 0.00
-            total_iva_31 = 0.00
+            # total_base_imponible_31 = 0.00
+            # total_iva_31 = 0.00
 
             total_nota_credito_16 = 0.00
             total_nota_credito_iva_16 = 0.00
             total_nota_credito_8 = 0.00
             total_nota_credito_iva_8 = 0.00
-            total_nota_credito_31 = 0.00
-            total_nota_credito_iva_31 = 0.00
+            # total_nota_credito_31 = 0.00
+            # total_nota_credito_iva_31 = 0.00
             total_nota_debito_16 = 0.00
             total_nota_debito_iva_16 = 0.00
             total_nota_debito_8 = 0.00
             total_nota_debito_iva_8 = 0.00
-            total_nota_debito_31 = 0.00
-            total_nota_debito_iva_31 = 0.00
+            # total_nota_debito_31 = 0.00
+            # total_nota_debito_iva_31 = 0.00
 
             """ 
                 Totales columnas ventas
@@ -307,24 +310,24 @@ class AccountVatLedgerXlsx(models.AbstractModel):
             c_total_iva_16 = 0.00
             c_total_base_imponible_8 = 0.00
             c_total_iva_8 = 0.00
-            c_total_base_imponible_31 = 0.00
-            c_total_iva_31 = 0.00
+            # c_total_base_imponible_31 = 0.00
+            # c_total_iva_31 = 0.00
             c_total_igtf = 0.00
           
             i = 0
             
-            """ 
-                Retenciones
-             """
+            """
+            Retenciones
+            """
+
+            retenciones = []
+
             tax_withholding_id = []
-            #retens = []
             if obj.type == 'purchase':
                 tax_withholding_id = self.env['account.tax'].search([
                     ('type_tax_use', '=', 'supplier'),
                     ('withholding_type', '=', 'partner_tax'),
                     ('company_id', '=', obj.company_id.id),
-                    
-                    
                 ], limit=1)
             else:
                 tax_withholding_id = self.env['account.tax'].search([
@@ -334,129 +337,99 @@ class AccountVatLedgerXlsx(models.AbstractModel):
                 ], limit=1)
 
             logging.info(tax_withholding_id)
-            retens = self.env['account.payment']
-            if tax_withholding_id:
-                retens = self.env['account.payment'].search([
-                    ('tax_withholding_id', '=', tax_withholding_id.id),
-                    ('state', '=', 'posted'),
-                    ('company_id', '=', obj.company_id.id),
-                    ('date', '>=', obj.date_from),
-                    ('date', '<=', obj.date_to),
-                ])
 
-            logging.info(retens)    
-            
-
-
-            retenciones = []
-            if retens:
-                retenciones = list(retens)
-                
-            # if obj.type == 'sale':
-            #     invoices = reversed(obj.invoice_ids)
-            # elif obj.type == 'purchase':
-            
             invoices = sorted(obj.invoice_ids, key=lambda x: x.invoice_date)
-            
+
             date_reference = obj.date_from
 
             totalsFoDayInv = self.getTotalInvoiceDate(invoices)
             fi = 1
-            listinv=[]
+            listinv = []
             logging.info("FACTURAS-------------------")
             logging.info(invoices)
-            for idx, invoice in enumerate(invoices):
 
-                # logging.info(idx)
-                # logging.info(invoice)
+            for idx, invoice in enumerate(invoices):
                 dinv = invoice.invoice_date.strftime('%d/%m/%Y')
                 if obj.type == 'purchase':
-                    ##Recetiamos el f1 y apendamos en la lista la fecha del dia que agrego ya el total de factura por dia para pintar las retenciones .
                     if fi == totalsFoDayInv[dinv] and dinv not in listinv:
                         logging.info(f"Vamos por {dinv}  total numero de facturas {totalsFoDayInv[dinv]}")
                         listinv.append(dinv)
                         fi = 1
-                        retens_filtrados = retens.filtered(lambda r: r.date == invoice.invoice_date)
-                        #aqui Armo todo los documento Retenciones de pagos de las facturas.
-                        for reten in sorted(retens_filtrados, key=lambda x: x.withholding_number):
-                            total_iva_16_retenido += reten.amount
+
+                        # Verificar si la factura tiene retención de IVA
+                        if invoice.withholding_iva and invoice.withholding_number:
+                            total_iva_16_retenido += invoice.withholding_iva
                             i += 1
-                            # codigo 
+                            # Código
                             sheet.write(row, 0, i, line)
-                            # fehca
-                            sheet.write(row, 1, reten.date, date_line)
-                            # tipo de documento
+                            # Fecha
+                            sheet.write(row, 1, invoice.invoice_date, date_line)
+                            # Tipo de documento
                             sheet.write(row, 2, 'Retención', line)
                             sheet.write(row, 3, '', line)
                             sheet.write(row, 4, '', line)
-                            # Numero de comrpobante
-                            sheet.write(row, 5, reten.withholding_number, line)
+                            # Número de comprobante
+                            sheet.write(row, 5, invoice.withholding_number, line)
                             # Documento afectado
-                            sheet.write(row, 6, reten.reconciled_bill_ids.ref, line)
+                            sheet.write(row, 6, invoice.ref or invoice.reference_number, line)
                             sheet.write(row, 7, '', line)
                             sheet.write(row, 8, '', line)
                             # Nombre
-                            sheet.write(row, 9, reten.move_id.partner_id.name, line)
+                            sheet.write(row, 9, invoice.partner_id.name, line)
                             # RIF
-                            sheet.write(row, 10, '%s-%s' % (reten.move_id.partner_id. \
-                                l10n_latam_identification_type_id.l10n_ve_code or 'FALSE',
-                                reten.move_id.partner_id.vat or 'FALSE'), line)
-                            #Total
+                            sheet.write(row, 10, '%s-%s' % (invoice.partner_id.l10n_latam_identification_type_id.l10n_ve_code or 'FALSE',
+                                                            invoice.partner_id.vat or 'FALSE'), line)
+                            # Total
                             sheet.write(row, 11, '', line)
                             # Compras Exento
                             sheet.write(row, 12, '', line)
 
-                            #IMPORTACIONES
+                            # IMPORTACIONES
                             # Base Imponible
                             sheet.write(row, 13, '', line)
                             # % Alic
                             sheet.write(row, 14, '', line)
-                            #Imp. IVA
+                            # Imp. IVA
                             sheet.write(row, 15, '', line)
 
-                            #Compras internas
+                            # Compras internas
                             # Base Imponible
                             sheet.write(row, 16, '', line)
                             # % Alic
                             sheet.write(row, 17, '', line)
-                            #Imp. IVA
+                            # Imp. IVA
                             sheet.write(row, 18, '', line)
 
-                            #IVA 8%
+                            # IVA 8%
                             # Base Imponible
                             sheet.write(row, 19, '', line)
                             # % Alic
                             sheet.write(row, 20, '', line)
-                            #Imp. IVA
+                            # Imp. IVA
                             sheet.write(row, 21, '', line)
 
-                                #IVA 31%
-                            # Base Imponible
-                            sheet.write(row, 22, '', line)
-                            # % Alic
-                            sheet.write(row, 23, '', line)
-                            #Imp. IVA
-                            sheet.write(row, 24, '', line)
-                            
+                            # # IVA 31%
+                            # # Base Imponible
+                            # sheet.write(row, 22, '', line)
+                            # # % Alic
+                            # sheet.write(row, 23, '', line)
+                            # # Imp. IVA
+                            # sheet.write(row, 24, '', line)
 
-                            #Retenciones
-                            sheet.write(row, 25, reten.amount, line)
+                            # Retenciones
+                            sheet.write(row, 22, abs(invoice.withholding_iva), line)
                             ###### IGTF
-                            sheet.write(row, 26, '', line)
-                            retenciones.remove(reten)
-                            row +=1
-                        logging.info(retens_filtrados)
+                            # sheet.write(row, 26, '', line)
+                            row += 1
                     else:
                         fi += 1
 
-
-               
                     i += 1
-                    # contador de la factura
+                    # Contador de la factura
                     sheet.write(row, 0, i, line)
-                    # codigo fecha
+                    # Fecha
                     sheet.write(row, 1, invoice.invoice_date or 'FALSE', date_line)
-                    # tipo de documento
+                    # Tipo de documento
                     if invoice.move_type == 'out_invoice':
                         sheet.write(row, 2, 'Factura', line)
                     elif invoice.move_type == 'out_refund' and not invoice.debit_origin_id:
@@ -470,17 +443,13 @@ class AccountVatLedgerXlsx(models.AbstractModel):
                     elif invoice.move_type == 'in_refund' and invoice.debit_origin_id:
                         sheet.write(row, 2, 'Nota de Debito', line)
                     # Número de Documento
-                    #sheet.write(row, 3, invoice.ref or '', line)
+                    sheet.write(row, 3, invoice.ref or invoice.reference_number or '', line)
                     # Número de Control
                     sheet.write(row, 4, invoice.l10n_ve_document_number or '', line)
-                    # Ticket FiscalL                                                
-                    sheet.write(row, 3, invoice.ref or '', line)
-                    
-                    # Retencion
-                    # Numero de comprobante
+                    # Ticket Fiscal
                     sheet.write(row, 5, '', line)
 
-                    # Número Factura Afectada si es de debito o credito
+                    # Número Factura Afectada si es de débito o crédito
                     if invoice.move_type == 'in_refund' or invoice.move_type == 'out_refund':
                         move_reconcileds = invoice._get_reconciled_info_JSON_values()
                         inv_info = ''
@@ -488,8 +457,7 @@ class AccountVatLedgerXlsx(models.AbstractModel):
                         if move_reconcileds:
                             for m in move_reconcileds:
                                 moves.append(m['move_id'])
-                            move_ids = self.env['account.move'].search(
-                                [('id', 'in', moves)])
+                            move_ids = self.env['account.move'].search([('id', 'in', moves)])
                             for mov in move_ids:
                                 if mov.move_type == 'in_invoice' and mov.state == 'posted':
                                     inv_info = mov.ref
@@ -497,322 +465,154 @@ class AccountVatLedgerXlsx(models.AbstractModel):
                     else:
                         sheet.write(row, 6, '', line)
 
-                    # Planilla de importacion
+                    # Planilla de importación
                     sheet.write(row, 7, '', line)
-                    # Nro Expediente de importacion
+                    # Nro Expediente de importación
                     sheet.write(row, 8, '', line)
-                    # nombre del partner
+                    # Nombre del partner
                     sheet.write(row, 9, invoice.partner_id.name or 'FALSE', line)
 
                     # Rif del cliente
-                    sheet.write(row, 10, '%s-%s' % (invoice.partner_id. \
-                        l10n_latam_identification_type_id.l10n_ve_code or 'FALSE',
-                        invoice.partner_id.vat or 'FALSE'), line)
-                    
-                    # Tipo de Proveedor Compras
-                    # sheet.write(row, 10, invoice.partner_id.l10n_ve_responsibility_type_id.name or 'FALSE', line)
+                    sheet.write(row, 10, '%s-%s' % (invoice.partner_id.l10n_latam_identification_type_id.l10n_ve_code or 'FALSE',
+                                                    invoice.partner_id.vat or 'FALSE'), line)
 
-                    #Total Compras con IVA
-                    sheet.write(
-                        row, 11, (abs(invoice.amount_total_bs)), line)
+                    # Total Compras con IVA
+                    sheet.write(row, 11, (abs(invoice.amount_total_bs)), line)
 
-                    ####IMPUESTOS##########
-                    
+                    # Inicialización de valores
                     base_exento = 0.00
-                    base_imponible = 0.00
-                    iva_16 = 0.00
-                    alic_16 = ''
-                    alic_8 = ''
-                    iva_8 = 0.00
-                    alic_31 = ''
-                    iva_31 = 0.00
+                    base_imponible_16 = 0.00
                     base_imponible_8 = 0.00
-                    base_imponible_31 = 0.00
+                    # base_imponible_31 = 0.00
+                    iva_16 = 0.00
+                    iva_8 = 0.00
+                    # iva_31 = 0.00
                     igtf_amount = 0.00
-                    if invoice.line_ids:
-                        for linel in invoice.line_ids:
-                            if linel.tax_ids:
-                                if linel.tax_ids[0].amount == 16.00:
-                                    base_imponible += (linel.debit if linel.credit == 0 else -linel.debit)* linel.related_tax_day
-                                    if invoice.move_type == 'out_refund' or \
-                                        invoice.move_type == 'in_refund' or (invoice.move_type == 'out_invoice' \
-                                            and invoice.debit_origin_id):
-                                        base_imponible += ((linel.credit * -1.00) if linel.credit == 0 else 0)* linel.related_tax_day
-                                        if not invoice.debit_origin_id:
-                                            total_nota_credito_16 += linel.credit * -1.00
-                                        else:
-                                            base_imponible += linel.debit
-                                            total_nota_debito_16 += linel.debit
-                                    else:
-                                        total_base_imponible_16 += (linel.debit if linel.credit == 0 else -linel.debit)* linel.related_tax_day
-                                    alic_16 = '16%'
-                                elif linel.tax_ids[0].amount == 0.00:
-                                    base_exento += (linel.debit if linel.credit == 0 else -linel.debit)  * linel.related_tax_day
-                                    if invoice.move_type == 'out_refund' or invoice.move_type == 'in_refund' \
-                                        or (invoice.move_type == 'out_invoice' and invoice.debit_origin_id):
-                                        base_exento += (linel.credit * -1.00)  * linel.related_tax_day  if linel.credit == 0 else 0
-                                        if not invoice.debit_origin_id:
-                                            total_base_exento_credito += (linel.credit * -1.00) * linel.related_tax_day
-                                        else:
-                                            base_exento += linel.debit
-                                            total_base_exento_debito += linel.debit
-                                    else:
-                                        total_base_exento += linel.debit * linel.related_tax_day if linel.credit == 0 else -linel.debit * linel.related_tax_day
 
-                                elif linel.tax_ids[0].amount == 8.00:
-                                    base_imponible_8 += (linel.debit if linel.credit == 0 else -linel.debit) * linel.related_tax_day
-                                    if invoice.move_type == 'out_refund' or invoice.move_type == 'in_refund' \
-                                        or (invoice.move_type == 'out_invoice' and invoice.debit_origin_id):
-                                        base_imponible_8 +=( linel.credit * -1.00 if linel.credit == 0 else 0) * linel.related_tax_day
-                                        if not invoice.debit_origin_id:
-                                            total_nota_credito_8 +=  (linel.credit * -1.00) * linel.related_tax_day
-                                        else:
-                                            base_imponible_8 += linel.debit * linel.related_tax_day
-                                            total_nota_debito_8 += linel.debit  * linel.related_tax_day
-                                    else:
-                                        total_base_imponible_8 += (linel.debit if linel.credit == 0 else -linel.debit)  * linel.related_tax_day
-                                    alic_8 = '8%'
-                                
-                                ## BASE IMPONIBLE 31% 
-                                elif linel.tax_ids[0].amount == 31.00:
-                                    print('####### ENTRO ENBASE IMPONIBLE #########')
-                                    base_imponible_31 += (linel.debit if linel.credit == 0 else -linel.debit )  * linel.related_tax_day
-                                    if invoice.move_type == 'out_refund' or invoice.move_type == 'in_refund' \
-                                        or (invoice.move_type == 'out_invoice' and invoice.debit_origin_id):
-                                        base_imponible_31 += (linel.credit * -1.00 if linel.credit == 0 else 0)  * linel.related_tax_day
-                                        if not invoice.debit_origin_id:
-                                            total_nota_credito_31 +=  linel.credit * -1.00
-                                        else:
-                                            base_imponible_31 += linel.debit   * linel.related_tax_day
-                                            total_nota_debito_31 += linel.debit  * linel.related_tax_day
-                                    else:
-                                        total_base_imponible_31 += (linel.debit if linel.credit == 0 else -linel.debit) * linel.related_tax_day
-                                    alic_31 = '31%'
-                            elif linel.name == 'IVA (16.0%) compras':
-                                iva_16 += linel.debit * linel.related_tax_day
-                                if invoice.move_type == 'out_refund' or \
-                                        invoice.move_type == 'in_refund' or (invoice.move_type == 'out_invoice' \
-                                            and invoice.debit_origin_id):
-                                    iva_16 += (linel.credit * -1.00) * linel.related_tax_day
-                                    if not invoice.debit_origin_id:
-                                        total_nota_credito_iva_16 += iva_16
-                                    else:
-                                        iva_16 += linel.debit * linel.related_tax_day
-                                        total_nota_debito_iva_16 += iva_16
-                                else:
-                                    total_iva_16 += iva_16
-                            elif linel.name == 'IVA (8.0%) compras':
-                                iva_8 += linel.debit  * linel.related_tax_day
-                                if invoice.move_type == 'out_refund' or invoice.move_type == 'in_refund' \
-                                        or (invoice.move_type == 'out_invoice' and invoice.debit_origin_id):
-                                    iva_8 += (linel.credit * -1.00) * linel.related_tax_day
-                                    if not invoice.debit_origin_id:
-                                        total_nota_credito_iva_8 += iva_8
-                                    else:
-                                        iva_8 += linel.debit
-                                        total_nota_debito_iva_8 += iva_8
-                                else:
-                                    total_iva_8 += iva_8
-                                alic_8 = '8%'
-                            ### IVA 31
-                            elif linel.name == 'IVA (31.0%) compras':
-                                iva_31 += linel.debit
-                                if invoice.move_type == 'out_refund' or invoice.move_type == 'in_refund' \
-                                        or (invoice.move_type == 'out_invoice' and invoice.debit_origin_id):
-                                    iva_31 += linel.credit * -1.00
-                                    if not invoice.debit_origin_id:
-                                        total_nota_credito_iva_31 += iva_31
-                                    else:
-                                        iva_31 += linel.debit
-                                        total_nota_debito_iva_31 += iva_31
-                                else:
-                                    total_iva_31 += iva_31
-                                alic_31 = '31%'
-
-                    if invoice.igtf_purchase_apply_purchase:
-                        igtf_amount = invoice.igtf_amount_purchase
-
-                    #########
-                    """ Totales """
-
-
-                    taxes = invoice.calcular_totales_por_impuesto_USD() 
-                    taxInvoice = invoice.tax_day
-                    iva_16=0
-                    iva_8 = 0
                     alic_16 = ''
                     alic_8 = ''
-                    if invoice.currency_id.name == 'USD':
-                        for key, value in taxes.items():
-                            if key == "IVA (16.0%) compras":
+                    # alic_31 = ''
+
+                    # Tasa de cambio y factor
+                    tasa_cambio = invoice.tax_day if invoice.currency_id.name == 'USD' else 1
+                    factor = -1 if invoice.move_type in ['out_refund', 'in_refund'] else 1
+
+                    # Recorrer líneas de la factura para calcular bases imponibles
+                    for inv_line in invoice.invoice_line_ids:
+                        line_base = inv_line.price_subtotal * tasa_cambio * factor
+
+                        if not inv_line.tax_ids:
+                            # Si la línea no tiene impuestos, es exenta
+                            base_exento += line_base
+                            continue
+
+                        for tax in inv_line.tax_ids:
+                            if tax.amount == 16.0:
+                                base_imponible_16 += line_base
                                 alic_16 = '16%'
-                                iva_16 = round(value * taxInvoice,2)
-                                
-                            if key == "IVA (8.0%) compras":
+                            elif tax.amount == 8.0:
+                                base_imponible_8 += line_base
                                 alic_8 = '8%'
-                                iva_8 = round(value * taxInvoice,2)
-                                total_iva_8 += round(value * taxInvoice,2)
+                            # elif tax.amount == 31.0:
+                            #     base_imponible_31 += line_base
+                            #     alic_31 = '31%'
 
-                    else:
-                            for key, value in taxes.items():
-                                if key == "IVA (16.0%) compras":
-                                    alic_16 = '16%'
-                                    iva_16 = round(value,2)
-                                
-                                if key == "IVA (16.0%) compras":
-                                    alic_8 = '8%'
-                                    iva_8 = value 
-                                    total_iva_8 += round(value ,2)
-                    c_total_base_exento += base_exento if base_exento else 0.00
-                    c_total_base_imponible_16 += base_imponible if base_imponible else 0.00
-                    c_total_iva_16 += iva_16 if iva_16 else 0.00
-                    c_total_base_imponible_8 += base_imponible_8 if base_imponible_8 else 0.00
-                    c_total_iva_8 += iva_8 if iva_8 else 0.00
-                    c_total_base_imponible_31 += base_imponible_31 if base_imponible_31 else 0.00
-                    c_total_iva_31 += iva_31 if iva_31 else 0.00
-                    c_total_igtf += igtf_amount if igtf_amount else 0.00
-                    #Bases imponnibles por tasa.
+                    # Recorrer líneas contables para calcular el IVA
+                    for move_line in invoice.line_ids:
+                        if move_line.tax_line_id:
+                            tax = move_line.tax_line_id
+                            # tax_amount = move_line.balance * tasa_cambio * factor
+
+                            if tax.amount == 16.0:
+                                iva_16 += base_imponible_16 * 0.16
+                            elif tax.amount == 8.0:
+                                iva_8 += base_imponible_8 * 0.08
+                            # elif tax.amount == 31.0:
+                            #     iva_31 += base_imponible_31 * 0.31
+
+                    # Si hay IGTF, aplicarlo
+                    igtf_amount = (invoice.igtf_amount_purchase if invoice.igtf_purchase_apply_purchase else 0.00) * factor
+
+                    # Cálculo de bases imponibles por impuesto (si tienes certeza de que funciona bien)
                     baseImponibleTax = invoice.calcular_base_imponible_por_impuesto_USD()
-                    baseImp_16 = 0
-                    baseImp_8 = 0
-                    for key, value in baseImponibleTax.items():
-                        if key == "IVA (16.0%) compras":
-                            baseImp_16 = round(value * taxInvoice,2)
-                        if key == "IVA (8.0%) compras":
-                            baseImp_8 = round(value * taxInvoice,2)
+                    baseImp_16 = baseImponibleTax.get("IVA (16.0%) compras", 0.00) * tasa_cambio
+                    baseImp_8 = baseImponibleTax.get("IVA (8.0%) compras", 0.00) * tasa_cambio
 
-                    # Compras Exento
-                    sheet.write(row, 12, round(base_exento,2), line)
+                    # Actualización de acumuladores totales
+                    c_total_base_exento += base_exento
+                    c_total_base_imponible_16 += base_imponible_16
+                    c_total_iva_16 += iva_16
+                    c_total_base_imponible_8 += base_imponible_8
+                    c_total_iva_8 += iva_8
+                    # c_total_base_imponible_31 += base_imponible_31
+                    # c_total_iva_31 += iva_31
+                    c_total_igtf += igtf_amount
 
-                    #IMPORTACIONES
-                    # Base Imponible
-                    sheet.write(row, 13, '', line)
-                    # % Alic
-                    sheet.write(row, 14, '', line)
-                    #Imp. IVA
-                    sheet.write(row, 15, '', line)
+                    # Escribir en la hoja Excel
+                    sheet.write(row, 12, round(base_exento, 2), line)  # Compras Exento
 
-                    #Compras internas
-                    # Base Imponible
-                    sheet.write(row, 16, baseImp_16, line)
-                    # % Alic
+                    # IMPORTACIONES
+                    sheet.write(row, 13, '', line)  # Base Imponible
+                    sheet.write(row, 14, '', line)  # % Alic
+                    sheet.write(row, 15, '', line)  # Imp. IVA
+
+                    # Compras internas 16%
+                    sheet.write(row, 16, round(baseImp_16, 2), line)
                     sheet.write(row, 17, alic_16, line)
-                    #Imp. IVA
-                    sheet.write(row, 18, iva_16, line)
+                    sheet.write(row, 18, round(iva_16, 2), line)
 
-                    #IVA 8%
-                    # Base Imponible
-                    sheet.write(row, 19, baseImp_8, line)
-                    # % Alic
+                    # Compras internas 8%
+                    sheet.write(row, 19, round(baseImp_8, 2), line)
                     sheet.write(row, 20, alic_8, line)
-                    #Imp. IVA
-                    sheet.write(row, 21, iva_8, line)
+                    sheet.write(row, 21, round(iva_8, 2), line)
 
-                    #IVA 31%
-                    # Base Imponible
-                    sheet.write(row, 22, base_imponible_31, line)
-                    # % Alic
-                    sheet.write(row, 23, alic_31, line)
-                    #Imp. IVA
-                    sheet.write(row, 24, iva_31, line)
-                    
+                    # IVA 31%
+                    # sheet.write(row, 22, round(base_imponible_31, 2), line)
+                    # sheet.write(row, 23, alic_31, line)
+                    # sheet.write(row, 24, round(iva_31, 2), line)
 
-                    #Retenciones
-                    sheet.write(row, 25, '', line)
-                    ###### IGTF
-                    sheet.write(row, 26, igtf_amount, line)
+                    # Retenciones (si aplica, aquí puedes dejar en blanco o ajustar)
+                    sheet.write(row, 22, '', line)
 
-                    
-                elif obj.type == 'sale':
-                    
-                     ##Recetiamos el f1 y apendamos en la lista la fecha del dia que agrego ya el total de factura por dia para pintas las retenciones .
-                    if fi == totalsFoDayInv[dinv] and dinv not in listinv:
-                        logging.info(retens)
-                        logging.info(f"Vamos por {dinv}  total numero de facturas {totalsFoDayInv[dinv]}")
-                        listinv.append(dinv)
-                        
-                        
-                        fi = 1
-                        retens_filtrados = retens.filtered(lambda r: r.date == invoice.invoice_date)
-                        #aqui Armo todo los documento Retenciones de pagos de las facturas.
-                        for reten in sorted(retens_filtrados, key=lambda x: x.withholding_number):
-                            logging.info("TEST--------------")
-                            logging.info(reten.sudo().reconciled_invoice_ids)
-                            total_iva_16_retenido += reten.amount
-                            i += 1
-                            # codigo 
-                            sheet.write(row, 0, i, line)
-                            # fehca
-                            sheet.write(row, 1, reten.date, date_line)
-                            # tipo de documento
-                            sheet.write(row, 2, 'Retención', line)
-                            sheet.write(row, 3, '', line)
-                            sheet.write(row, 4, '', line)
-                            # Numero de comrpobante
-                            sheet.write(row, 5, reten.withholding_number, line)
-                            # Documento afectado
-                            sheet.write(row, 6, reten.sudo().reconciled_invoice_ids.name, line)
-                            # Nombre
-                            sheet.write(row, 7, reten.move_id.partner_id.name, line)
-                    
-                            # RIF
-                            sheet.write(row, 8, '%s-%s' % (reten.move_id.partner_id. \
-                                l10n_latam_identification_type_id.l10n_ve_code or 'FALSE',
-                                reten.move_id.partner_id.vat or 'FALSE'), line)
-                            
-                            sheet.write(row, 9, invoice.amount_untaxed_signed, line)
-                  
-                            sheet.write(row, 10, invoice.amount_tax_signed, line)
-                            #Total
-                            sheet.write(row, 11, '', line)
-                            # Compras Exento
-                            sheet.write(row, 12, '', line)
+                    # IGTF
+                    # sheet.write(row, 26, round(igtf_amount, 2), line)
 
-                            #IMPORTACIONES
-                            # Base Imponible
-                            sheet.write(row, 13, '', line)
-                            # % Alic
-                            sheet.write(row, 14, '', line)
-                            #Imp. IVA
-                            sheet.write(row, 15, '', line)
+                # Dentro de la iteración de las facturas, por cada 'invoice' (solo para ventas)
+                if obj.type == 'sale':
+                    # Verificar si la factura tiene retención de IVA (directo desde la factura, no de pagos)
+                    if invoice.withholding_iva and invoice.withholding_number:
+                        total_iva_16_retenido += invoice.withholding_iva
 
-                            #Compras internas
-                            # Base Imponible
-                            sheet.write(row, 16, '', line)
-                            # % Alic
-                            sheet.write(row, 17, '', line)
-                            #Imp. IVA
-                            sheet.write(row, 18, '', line)
+                        i += 1
+                        sheet.write(row, 0, i, line)  # Número de operación
+                        sheet.write(row, 1, invoice.invoice_date, date_line)  # Fecha
+                        sheet.write(row, 2, 'Retención', line)  # Tipo de documento
+                        sheet.write(row, 3, '', line)  # Número de documento (vacío)
+                        sheet.write(row, 4, '', line)  # Número de control (vacío)
+                        sheet.write(row, 5, invoice.withholding_number, line)  # Número de comprobante
+                        sheet.write(row, 6, invoice.name or invoice.reference_number, line)  # Documento afectado
+                        sheet.write(row, 7, invoice.partner_id.name or 'N/A', line)  # Nombre del cliente
+                        sheet.write(row, 8, '%s-%s' % (
+                            invoice.partner_id.l10n_latam_identification_type_id.l10n_ve_code or 'N/A',
+                            invoice.partner_id.vat or 'N/A'
+                        ), line)  # RIF
+                        sheet.write(row, 9, '', line)  # Total ventas incluyendo IVA (vacío)
+                        sheet.write(row, 10, '', line)  # Base imponible (vacío)
 
-                            #IVA 8%
-                            # Base Imponible
-                            sheet.write(row, 19, '', line)
-                            # % Alic
-                            sheet.write(row, 20, '', line)
-                            #Imp. IVA
-                            sheet.write(row, 21, '', line)
+                        # Celdas adicionales vacías (ajusta si necesitas)
+                        for col in range(11, 28):
+                            sheet.write(row, col, '', line)
 
-                                #IVA 31%
-                            # Base Imponible
-                            sheet.write(row, 22, '', line)
-                            # % Alic
-                            sheet.write(row, 23, '', line)
-                            #Imp. IVA
-                            sheet.write(row, 24, '', line)
-                            
+                        # Columna de IVA retenido
+                        sheet.write(row, 28, abs(invoice.withholding_iva), line)
+                        sheet.write(row, 29, '', line)  # IGTF (vacío)
 
-                            #Retenciones
-                            sheet.write(row, 25, reten.amount, line)
-                            ###### IGTF
-                            sheet.write(row, 26, '', line)
-                            retenciones.remove(reten)
-                            row +=1
-                        logging.info(retens_filtrados)
+                        row += 1  # Avanzar a la siguiente fila
+
                     else:
                         fi += 1
-               
-                    i += 1
 
+                    i += 1
 
                     # contador de la factura
                     sheet.write(row, 0, i, line)
@@ -834,7 +634,7 @@ class AccountVatLedgerXlsx(models.AbstractModel):
                         sheet.write(row, 2, 'Nota de Debito', line)
 
                     # Número de Documento
-                    sheet.write(row, 3, invoice.name or 'FALSE', line)
+                    sheet.write(row, 3, invoice.reference_number or invoice.name or invoice.ref or '', line)
                     # Número de Control
                     sheet.write(row, 4, invoice.l10n_ve_document_number or 'FALSE', line)
                     # Ticket FiscalL                                                
@@ -851,7 +651,7 @@ class AccountVatLedgerXlsx(models.AbstractModel):
                         # Número Factura Afectada si es de debito o credito
                         if invoice.move_type == 'out_refund':
                             if invoice.reversed_entry_id:
-                                sheet.write(row, 6, invoice.reversed_entry_id.name, line)
+                                sheet.write(row, 6, invoice.reversed_entry_id.name or invoice.reversed_entry_id.reference_number, line)
                             else:
                                 sheet.write(row, 6, '', line)
                         elif invoice.debit_origin_id:
@@ -873,167 +673,90 @@ class AccountVatLedgerXlsx(models.AbstractModel):
                         
                         #VENTAS POR CUENTAS DE TERCEROS
                         
-                        
                         sheet.write(row, 10, '', line)  
                         sheet.write(row, 11, '', line)
                         sheet.write(row, 12, '', line)
                         sheet.write(row, 13, '', line)
 
-
-    
                         
                         #############################
 
-                        ####IMPUESTOS##########
-                        
+                        # Inicialización de valores
                         base_exento = 0.00
-                        base_imponible = 0.00
+                        base_imponible_16 = 0.00
+                        base_imponible_8 = 0.00
                         iva_16 = 0.00
+                        iva_8 = 0.00
+
                         alic_16 = ''
                         alic_8 = ''
-                        iva_8 = 0.00
-                        base_imponible_8 = 0.00
-                        if invoice.line_ids:
-                            for linel in invoice.line_ids:
-                                if linel.tax_ids:
-                                    if linel.tax_ids[0].amount == 16.00:
-                                        base_imponible += (linel.credit if linel.debit == 0 else -linel.debit) * linel.related_tax_day
-                                        if invoice.move_type == 'out_refund' or \
-                                            invoice.move_type == 'in_refund' or (invoice.move_type == 'out_invoice' \
-                                                and invoice.debit_origin_id):       
-                                      
-                                            if not invoice.debit_origin_id:
-                                                total_nota_credito_16 += (linel.debit * -1.00) * linel.related_tax_day
-                                            else:
-                                                base_imponible += linel.credit * linel.related_tax_day
-                                                total_nota_debito_16 += linel.credit * linel.related_tax_day
-                                        else:
-                                            total_base_imponible_16 += (linel.credit if linel.debit == 0 else -linel.debit) * linel.related_tax_day
-                                        alic_16 = '16%'
-                                    elif linel.tax_ids[0].amount == 0.00:
-                                        base_exento += (linel.credit if linel.debit == 0 else -linel.debit) * linel.related_tax_day
-                                        if invoice.move_type == 'out_refund' or invoice.move_type == 'in_refund' \
-                                            or (invoice.move_type == 'out_invoice' and invoice.debit_origin_id):
-                                            base_exento += (linel.debit * -1.00 if linel.debit == 0 else 0) * linel.related_tax_day
-                                            if not invoice.debit_origin_id:
-                                                total_base_exento_credito += (linel.debit * -1.00) * linel.related_tax_day
-                                            else:
-                                                base_exento += linel.credit * linel.related_tax_day
-                                                total_base_exento_debito += linel.credit * linel.related_tax_day
-                                        else:
-                                            total_base_exento += (linel.credit if linel.debit == 0 else -linel.debit) * linel.related_tax_day
-                                        
-                                        logging.info(total_base_exento)
-                                    elif linel.tax_ids[0].amount == 8.00:
-                                        base_imponible_8 += (linel.credit if linel.debit == 0 else -linel.debit) * linel.related_tax_day
-                                        if invoice.move_type == 'out_refund' or invoice.move_type == 'in_refund' \
-                                            or (invoice.move_type == 'out_invoice' and invoice.debit_origin_id):
-                                            base_imponible_8 += (linel.debit * -1.00 if linel.debit == 0 else 0) * linel.related_tax_day
-                                            if not invoice.debit_origin_id:
-                                                total_nota_credito_8 += (linel.debit * -1.00 )  * linel.related_tax_day
-                                            else:
-                                                base_imponible_8 += linel.credit * linel.related_tax_day
-                                                total_nota_debito_8 += linel.credit  * linel.related_tax_day
-                                        else:
-                                            total_base_imponible_8 += (linel.credit if linel.debit == 0 else -linel.debit) * linel.related_tax_day
-                                        alic_8 = '8%'
-                   
-                                        
-                                elif linel.name == 'IVA (16.0%) ventas':
-                                    iva_16 += linel.credit * linel.related_tax_day
-                                    if invoice.move_type == 'out_refund' or \
-                                            invoice.move_type == 'in_refund' or (invoice.move_type == 'out_invoice' \
-                                                and invoice.debit_origin_id):
-                                        iva_16 += (linel.debit * -1.00) * linel.related_tax_day
-                                        if not invoice.debit_origin_id:
-                                            total_nota_credito_iva_16 += iva_16
-                                        else:
-                                            iva_16 += linel.credit * linel.related_tax_day
-                                            total_nota_debito_iva_16 += iva_16
-                                    else:
-                                        total_iva_16 += iva_16
-                                # elif linel.name == 'IVA (8%) ventas':
-                                #     iva_8 += linel.credit * linel.related_tax_day
-                                #     if invoice.move_type == 'out_refund' or invoice.move_type == 'in_refund' \
-                                #             or (invoice.move_type == 'out_invoice' and invoice.debit_origin_id):
-                                #         iva_8 += (linel.debit * -1.00) * linel.related_tax_day
-                                #         if not invoice.debit_origin_id:
-                                #             total_nota_credito_iva_8 += iva_8
-                                #         else:
-                                #             iva_8 += linel.credit * linel.related_tax_day
-                                #             total_nota_debito_iva_8 += iva_8
-                                #     else:
-                                #         total_iva_8 += round(iva_8,2)
-                                #     alic_8 = '8%'
-                        
-                        #Contribuyentes
-                        if invoice.partner_id.l10n_latam_identification_type_id.is_vat:
-                            taxes = invoice.calcular_totales_por_impuesto_USD() 
-                            taxInvoice = invoice.tax_day
-        
-                            for key, value in taxes.items():
-                                if key == "IVA (16.0%) ventas":
+
+                        # Tasa de cambio y factor
+                        tasa_cambio = invoice.tax_day if invoice.currency_id.name == 'USD' else 1
+                        factor = -1 if invoice.move_type in ['out_refund', 'in_refund'] else 1
+
+                        # Recorrer líneas de la factura para calcular bases imponibles
+                        for inv_line in invoice.invoice_line_ids:
+                            line_base = inv_line.price_subtotal * tasa_cambio * factor
+
+                            if not inv_line.tax_ids:
+                                # Si la línea no tiene impuestos, es exenta
+                                base_exento += line_base
+                                continue
+
+                            for tax in inv_line.tax_ids:
+                                if tax.amount == 16.0:
+                                    base_imponible_16 += line_base
                                     alic_16 = '16%'
-                                    iva_16 = round(value * taxInvoice,2)
-                                    
-                                if key == "IVA (8.0%) ventas":
+                                elif tax.amount == 8.0:
+                                    base_imponible_8 += line_base
                                     alic_8 = '8%'
-                                    iva_8 = round(value * taxInvoice,2)
-                                    total_iva_8 += round(value * taxInvoice,2)
+                                # elif tax.amount == 31.0:
+                                #     base_imponible_31 += line_base
+                                #     alic_31 = '31%'
 
-                            #Bases imponnibles por tasa.
-                            baseImponibleTax = invoice.calcular_base_imponible_por_impuesto_USD()
-                            baseImp_16 = 0.00
-                            baseImp_8 = 0.00
-                            for key, value in baseImponibleTax.items():
-                                if key == "IVA (16.0%) ventas":
-                                    baseImp_16 = round(value * taxInvoice,2)
-                                if key == "IVA (8.0%) ventas":
-                                    baseImp_8 = round(value * taxInvoice,2)
-                            
-                            total_base_exento_contribuyente += base_exento if base_exento else 0.00
-                            total_base_imponible_contribuyente_16 += base_imponible if base_imponible else 0.00
-                            total_iva_contribuyente_16 += iva_16 if iva_16 else 0.00
-                            total_base_imponible_contribuyente_8 += base_imponible_8 if base_imponible_8 else 0.00
-                            total_iva_contribuyente_8 += iva_8 if iva_8 else 0.00
+                        # Recorrer líneas contables para calcular el IVA
+                        for move_line in invoice.line_ids:
+                            if move_line.tax_line_id:
+                                tax = move_line.tax_line_id
+                                # tax_amount = move_line.balance * tasa_cambio * factor
 
-                            sheet.write(row, 14, round(base_exento,2), line)#Ventas internas no grabadas
-                            
-                            
-                            sheet.write(row, 15, baseImp_16, line)     #base Imponible 16%   
+                                if tax.amount == 16.0:
+                                    iva_16 += base_imponible_16 * 0.16
+                                elif tax.amount == 8.0:
+                                    iva_8 += base_imponible_8 * 0.08
+                                # elif tax.amount == 31.0:
+                                #     iva_31 += base_imponible_31 * 0.31
+
+                        # Acumuladores por tipo de cliente
+                        if invoice.partner_id.l10n_latam_identification_type_id.is_vat:  # Contribuyente
+                            total_base_exento_contribuyente += base_exento
+                            total_base_imponible_contribuyente_16 += base_imponible_16
+                            total_iva_contribuyente_16 += iva_16
+                            total_base_imponible_contribuyente_8 += base_imponible_8
+                            total_iva_contribuyente_8 += iva_8
+
+                            # Imprimir en columnas correspondientes (Contribuyente)
+                            sheet.write(row, 14, round(base_exento, 2), line)
+                            sheet.write(row, 15, round(base_imponible_16, 2), line)
                             sheet.write(row, 16, alic_16, line)
-                            sheet.write(row, 17, iva_16, line)
-                            
-                            sheet.write(row, 18, round(base_imponible_8,2), line) 
+                            sheet.write(row, 17, round(iva_16, 2), line)
+                            sheet.write(row, 18, round(base_imponible_8, 2), line)
                             sheet.write(row, 19, alic_8, line)
-                            sheet.write(row, 20, iva_8, line)
+                            sheet.write(row, 20, round(iva_8, 2), line)
 
-                            sheet.write(row, 21, '', line)
-                            sheet.write(row, 22, '', line)
-                            sheet.write(row, 23, '', line)
-                            sheet.write(row, 24, '', line)
-                            sheet.write(row, 25, '', line)
-                            sheet.write(row, 26, '', line)
-                            sheet.write(row, 27, '', line)
+                            # Vaciar celdas No Contribuyentes
+                            for col in range(21, 28):
+                                sheet.write(row, col, '', line)
 
-                        #No contribuyentes
-                        else:
-                            taxes = invoice.calcular_totales_por_impuesto_USD() 
-                            taxInvoice = invoice.tax_day
-                            for key, value in taxes.items():
-                                if key == "IVA (16.0%) ventas":
-                                    alic_16 = '16%'
-                                    iva_16 = round(value * taxInvoice,2)
-                                if key == "IVA (8.0%) ventas":
-                                    alic_8 = '8%'
-                                    iva_8 = round(value * taxInvoice,2)
+                        else:  # No contribuyente
+                            total_base_exento_no_contribuyente += base_exento
+                            total_base_imponible_no_contribuyente_16 += base_imponible_16
+                            total_iva_no_contribuyente_16 += iva_16
+                            total_base_imponible_no_contribuyente_8 += base_imponible_8
+                            total_iva_no_contribuyente_8 += iva_8
 
-                            total_base_exento_no_contribuyente += base_exento if base_exento else 0.00
-                            total_base_imponible_no_contribuyente_16 += base_imponible if base_imponible else 0.00
-                            total_iva_no_contribuyente_16 += iva_16 if iva_16 else 0.00
-                            total_base_imponible_no_contribuyente_8 += base_imponible_8 if base_imponible_8 else 0.00
-                            total_iva_no_contribuyente_8 += iva_8 if iva_8 else 0.00
-
+                            # Imprimir en columnas correspondientes (No Contribuyente)
                             sheet.write(row, 14, '', line)
                             sheet.write(row, 15, '', line)
                             sheet.write(row, 16, '', line)
@@ -1042,23 +765,18 @@ class AccountVatLedgerXlsx(models.AbstractModel):
                             sheet.write(row, 19, '', line)
                             sheet.write(row, 20, '', line)
 
-
-                            sheet.write(row, 21, base_exento, line)
-                            sheet.write(row, 22, base_imponible, line)
+                            sheet.write(row, 21, round(base_exento, 2), line)
+                            sheet.write(row, 22, round(base_imponible_16, 2), line)
                             sheet.write(row, 23, alic_16, line)
-                            sheet.write(row, 24, iva_16, line)
-                            sheet.write(row, 25, base_imponible_8, line)
+                            sheet.write(row, 24, round(iva_16, 2), line)
+                            sheet.write(row, 25, round(base_imponible_8, 2), line)
                             sheet.write(row, 26, alic_8, line)
-                            sheet.write(row, 27, iva_8, line)
-                            # sheet.write(row, 27, iva, line)
-                    
-                        
-                    #IGTF
-                        sheet.write(row, 28, '', line)
-                        sheet.write(row, 29, '', line)
+                            sheet.write(row, 27, round(iva_8, 2), line)
+
+                        # IGTF (si aplica)
+                        sheet.write(row, 28, '', line)  # Retención IVA (se llena después)
+                        sheet.write(row, 29, '', line)  # IGTF
                 row += 1
-
-
 
             if len(retenciones) > 0 and obj.type == 'sale':
                 for reten in sorted(retenciones, key=lambda x: x.date):
@@ -1161,31 +879,31 @@ class AccountVatLedgerXlsx(models.AbstractModel):
                 sheet.write((row+6), 14, total_iva_8, line)  #total_iva_8
                 sheet.write((row+6), 15, '0', line)
                 sheet.write((row+6), 16, '0', line)
-                sheet.merge_range('J%s:M%s' % (str(row+8), str(row+8)), 'Total Ventas Internas afectadas  más adicional 31.00', title_style)
-                sheet.write((row+7), 13, '0', line)
-                sheet.write((row+7), 14, '0', line)
-                sheet.write((row+7), 15, '0', line)
-                sheet.write((row+7), 16, '0', line)
-                sheet.merge_range('J%s:M%s' % (str(row+9), str(row+9)), 'Total Notas de Crédito o Devoluciones aplicadas en Ventas 16%', title_style)
-                sheet.write((row+8), 13, total_nota_credito_16, line)
-                sheet.write((row+8), 14, total_nota_credito_iva_16, line)
+                # sheet.merge_range('J%s:M%s' % (str(row+8), str(row+8)), 'Total Ventas Internas afectadas  más adicional 31.00', title_style)
+                # sheet.write((row+7), 13, '0', line)
+                # sheet.write((row+7), 14, '0', line)
+                # sheet.write((row+7), 15, '0', line)
+                # sheet.write((row+7), 16, '0', line)
+                sheet.merge_range('J%s:M%s' % (str(row+8), str(row+8)), 'Total Notas de Crédito o Devoluciones aplicadas en Ventas 16%', title_style)
+                sheet.write((row+7), 13, total_nota_credito_16, line)
+                sheet.write((row+7), 14, total_nota_credito_iva_16, line)
+                sheet.write((row+7), 15, '', line)
+                sheet.write((row+7), 16, '', line)
+                sheet.merge_range('J%s:M%s' % (str(row+9), str(row+9)), 'Total Notas de Crédito o Devoluciones aplicadas en Ventas 8%', title_style)
+                sheet.write((row+8), 13, total_nota_credito_8, line)
+                sheet.write((row+8), 14, total_nota_credito_iva_8, line)
                 sheet.write((row+8), 15, '', line)
                 sheet.write((row+8), 16, '', line)
-                sheet.merge_range('J%s:M%s' % (str(row+10), str(row+10)), 'Total Notas de Crédito o Devoluciones aplicadas en Ventas 8%', title_style)
-                sheet.write((row+9), 13, total_nota_credito_8, line)
-                sheet.write((row+9), 14, total_nota_credito_iva_8, line)
+                sheet.merge_range('J%s:M%s' % (str(row+10), str(row+10)), 'Total Notas de Débito o recargos aplicadas en Ventas 16%:', title_style)
+                sheet.write((row+9), 13, total_nota_debito_16, line)
+                sheet.write((row+9), 14, total_nota_debito_iva_16, line)
                 sheet.write((row+9), 15, '', line)
                 sheet.write((row+9), 16, '', line)
-                sheet.merge_range('J%s:M%s' % (str(row+11), str(row+11)), 'Total Notas de Débito o recargos aplicadas en Ventas 16%:', title_style)
-                sheet.write((row+10), 13, total_nota_debito_16, line)
-                sheet.write((row+10), 14, total_nota_debito_iva_16, line)
+                sheet.merge_range('J%s:M%s' % (str(row+11), str(row+11)), 'Total Notas de Débito o recargos aplicadas en Ventas 8%:', title_style)
+                sheet.write((row+10), 13, total_nota_debito_8, line)
+                sheet.write((row+10), 14, total_nota_debito_iva_8, line)
                 sheet.write((row+10), 15, '', line)
                 sheet.write((row+10), 16, '', line)
-                sheet.merge_range('J%s:M%s' % (str(row+12), str(row+12)), 'Total Notas de Débito o recargos aplicadas en Ventas 8%:', title_style)
-                sheet.write((row+11), 13, total_nota_debito_8, line)
-                sheet.write((row+11), 14, total_nota_debito_iva_8, line)
-                sheet.write((row+11), 15, '', line)
-                sheet.write((row+11), 16, '', line)
                 # Calcula el total en la fila 13
                 total_row_13 = (
                     total_base_exento_contribuyente + total_base_exento_no_contribuyente +
@@ -1193,8 +911,8 @@ class AccountVatLedgerXlsx(models.AbstractModel):
                     total_base_imponible_contribuyente_8 + total_base_imponible_no_contribuyente_8 +
                     total_base_exento_credito + total_base_exento_debito
                 )
-                sheet.merge_range('J%s:M%s' % (str(row+13), str(row+13)), 'Total:', title_style)
-                sheet.write((row+12), 13, round(total_row_13, 2), line)
+                sheet.merge_range('J%s:M%s' % (str(row+12), str(row+12)), 'Total:', title_style)
+                sheet.write((row+11), 13, round(total_row_13, 2), line)
                 
                 if total_iva_contribuyente_16:
                     total_iva_16 = total_iva_contribuyente_16
@@ -1204,13 +922,13 @@ class AccountVatLedgerXlsx(models.AbstractModel):
                         total_iva_8 = total_iva_contribuyente_8
                 else:total_iva_8 = total_iva_no_contribuyente_8
                 
-                sheet.write((row+12), 14, (
+                sheet.write((row+11), 14, (
                     total_iva_16 + total_iva_8 +
                     total_nota_credito_iva_16 + total_nota_credito_iva_8 +
                     total_nota_debito_iva_16 + total_nota_debito_iva_8
                 ), line)
-                sheet.write((row+12), 15, total_iva_16_retenido, line)
-                sheet.write((row+12), 16, total_iva_16_igtf, line)
+                sheet.write((row+11), 15, total_iva_16_retenido, line)
+                sheet.write((row+11), 16, total_iva_16_igtf, line)
 
             # Totales de compras
             else:
@@ -1220,8 +938,8 @@ class AccountVatLedgerXlsx(models.AbstractModel):
                 sheet.write((row), 18, c_total_iva_16, line_total)
                 sheet.write((row), 19, c_total_base_imponible_8, line_total)
                 sheet.write((row), 21, c_total_iva_8, line_total)
-                sheet.write((row), 22, c_total_base_imponible_31, line_total)
-                sheet.write((row), 24, c_total_iva_31, line_total)
+                # sheet.write((row), 22, c_total_base_imponible_31, line_total)
+                # sheet.write((row), 24, c_total_iva_31, line_total)
                 sheet.write((row), 26, c_total_igtf, line_total)
 
 
@@ -1235,7 +953,7 @@ class AccountVatLedgerXlsx(models.AbstractModel):
 
                 sheet.merge_range('J%s:M%s' % (str(row + 2), str(row + 2)), 'Total Compras Internas NO Gravadas',
                                   title_style)
-                sheet.write((row + 1), 13, total_base_exento, line)
+                sheet.write((row + 1), 13, c_total_base_exento, line)
                 sheet.write((row + 1), 14, '0', line)
                 sheet.write((row + 1), 15, '0', line)
                 sheet.write((row + 1), 16, '0', line)
@@ -1262,70 +980,70 @@ class AccountVatLedgerXlsx(models.AbstractModel):
                 sheet.write((row + 4), 17, '0', line)
                 sheet.merge_range('J%s:M%s' % (str(row + 6), str(row + 6)),
                                   'Total Compras Internas afectadas sólo alícuota general 16.00', title_style)
-                sheet.write((row + 5), 13, round(total_base_imponible_16,2), line)
-                sheet.write((row + 5), 14, total_iva_16, line)
-                sheet.write((row + 5), 15, total_iva_16_retenido, line)
+                sheet.write((row + 5), 13, round(c_total_base_imponible_16,2), line)
+                sheet.write((row + 5), 14, c_total_iva_16, line)
+                sheet.write((row + 5), 15, abs(total_iva_16_retenido), line)
                 sheet.write((row + 5), 16, total_iva_16_igtf, line)
                 sheet.write((row + 5), 17, '0', line)
                 sheet.merge_range('J%s:M%s' % (str(row + 7), str(row + 7)),
                                   'Total Compras Internas afectadas sólo alícuota reducida 8.00', title_style)
-                sheet.write((row + 6), 13, total_base_imponible_8, line)
+                sheet.write((row + 6), 13, c_total_base_imponible_8, line)
                 sheet.write((row + 6), 14, total_iva_8, line)
                 sheet.write((row + 6), 15, '0', line)
                 sheet.write((row + 6), 16, '0', line)
                 sheet.write((row + 6), 17, '0', line)
-                sheet.merge_range('J%s:M%s' % (str(row + 8), str(row + 8)),
-                                  'Total Compras Internas afectadas por alícuota general más adicional 31.00', title_style)
-                sheet.write((row + 7), 13, total_base_imponible_31, line)
-                sheet.write((row + 7), 14, total_iva_31, line)
-                sheet.write((row + 7), 15, '0', line)
-                sheet.write((row + 7), 16, '0', line)
-                sheet.write((row + 7), 17, '0', line)
-                sheet.merge_range('J%s:M%s' % (str(row+9), str(row+9)), 'Total Notas de Crédito o Devoluciones aplicadas en Compras 16%', title_style)
-                sheet.write((row+8), 13, total_nota_credito_16, line)
-                sheet.write((row+8), 14, total_nota_credito_iva_16, line)
+                # sheet.merge_range('J%s:M%s' % (str(row + 8), str(row + 8)),
+                #                   'Total Compras Internas afectadas por alícuota general más adicional 31.00', title_style)
+                # sheet.write((row + 7), 13, c_total_base_imponible_31, line)
+                # sheet.write((row + 7), 14, total_iva_31, line)
+                # sheet.write((row + 7), 15, '0', line)
+                # sheet.write((row + 7), 16, '0', line)
+                # sheet.write((row + 7), 17, '0', line)
+                sheet.merge_range('J%s:M%s' % (str(row+8), str(row+8)), 'Total Notas de Crédito o Devoluciones aplicadas en Compras 16%', title_style)
+                sheet.write((row+7), 13, total_nota_credito_16, line)
+                sheet.write((row+7), 14, total_nota_credito_iva_16, line)
+                sheet.write((row+7), 15, '0', line)
+                sheet.write((row+7), 16, '0', line)
+                sheet.write((row+7), 17, '0', line)
+                sheet.merge_range('J%s:M%s' % (str(row+9), str(row+9)), 'Total Notas de Crédito o Devoluciones aplicadas en Compras 8%', title_style)
+                sheet.write((row+8), 13, total_nota_credito_8, line)
+                sheet.write((row+8), 14, total_nota_credito_iva_8, line)
                 sheet.write((row+8), 15, '0', line)
                 sheet.write((row+8), 16, '0', line)
-                sheet.write((row + 8), 17, '0', line)
-                sheet.merge_range('J%s:M%s' % (str(row+10), str(row+10)), 'Total Notas de Crédito o Devoluciones aplicadas en Compras 8%', title_style)
-                sheet.write((row+9), 13, total_nota_credito_8, line)
-                sheet.write((row+9), 14, total_nota_credito_iva_8, line)
+                sheet.write((row+8), 17, '0', line)
+                # sheet.merge_range('J%s:M%s' % (str(row+11), str(row+11)), 'Total Notas de Crédito o Devoluciones aplicadas en Compras 31%', title_style)
+                # sheet.write((row+10), 13, total_nota_credito_31, line)
+                # sheet.write((row+10), 14, total_nota_credito_iva_31, line)
+                # sheet.write((row+10), 15, '0', line)
+                # sheet.write((row+10), 16, '0', line)
+                # sheet.write((row + 10), 17, '0', line)
+                sheet.merge_range('J%s:M%s' % (str(row+10), str(row+10)), 'Total Notas de Débito o recargos aplicadas en Compras 16%:', title_style)
+                sheet.write((row+9), 13, total_nota_debito_16, line)
+                sheet.write((row+9), 14, total_nota_debito_iva_16, line)
                 sheet.write((row+9), 15, '0', line)
                 sheet.write((row+9), 16, '0', line)
-                sheet.write((row + 9), 17, '0', line)
-                sheet.merge_range('J%s:M%s' % (str(row+11), str(row+11)), 'Total Notas de Crédito o Devoluciones aplicadas en Compras 31%', title_style)
-                sheet.write((row+10), 13, total_nota_credito_31, line)
-                sheet.write((row+10), 14, total_nota_credito_iva_31, line)
+                sheet.write((row+9), 17, '0', line)
+                sheet.merge_range('J%s:M%s' % (str(row+11), str(row+11)), 'Total Notas de Débito o recargos aplicadas en Compras 8%:', title_style)
+                sheet.write((row+10), 13, total_nota_debito_8, line)
+                sheet.write((row+10), 14, total_nota_debito_iva_8, line)
                 sheet.write((row+10), 15, '0', line)
                 sheet.write((row+10), 16, '0', line)
-                sheet.write((row + 10), 17, '0', line)
-                sheet.merge_range('J%s:M%s' % (str(row+12), str(row+12)), 'Total Notas de Débito o recargos aplicadas en Compras 16%:', title_style)
-                sheet.write((row+11), 13, total_nota_debito_16, line)
-                sheet.write((row+11), 14, total_nota_debito_iva_16, line)
-                sheet.write((row+11), 15, '0', line)
-                sheet.write((row+11), 16, '0', line)
-                sheet.write((row+11), 17, '0', line)
-                sheet.merge_range('J%s:M%s' % (str(row+13), str(row+13)), 'Total Notas de Débito o recargos aplicadas en Compras 8%:', title_style)
-                sheet.write((row+12), 13, total_nota_debito_8, line)
-                sheet.write((row+12), 14, total_nota_debito_iva_8, line)
-                sheet.write((row+12), 15, '0', line)
-                sheet.write((row+12), 16, '0', line)
-                sheet.write((row +12), 17, '0', line)
-                sheet.merge_range('J%s:M%s' % (str(row+14), str(row+14)), 'Total Notas de Débito o recargos aplicadas en Compras 31%:', title_style)
-                sheet.write((row+13), 13, total_nota_debito_31, line)
-                sheet.write((row+13), 14, total_nota_debito_iva_31, line)
-                sheet.write((row+13), 15, '0', line)
-                sheet.write((row+13), 16, '0', line)
-                sheet.write((row +13), 17, '0', line)
-                sheet.merge_range('J%s:M%s' % (str(row+15), str(row+15)), 'Total:', title_style)
-                sheet.write((row+14), 13, round(total_base_exento + total_base_imponible_16 \
-                    + total_base_imponible_8+total_base_imponible_31+total_nota_credito_16+\
-                        + total_nota_credito_8 + total_nota_credito_31 +total_nota_debito_16 + \
-                            + total_nota_debito_8 + total_nota_debito_31 + total_base_exento_credito +\
+                sheet.write((row+10), 17, '0', line)
+                # sheet.merge_range('J%s:M%s' % (str(row+14), str(row+14)), 'Total Notas de Débito o recargos aplicadas en Compras 31%:', title_style)
+                # sheet.write((row+13), 13, total_nota_debito_31, line)
+                # sheet.write((row+13), 14, total_nota_debito_iva_31, line)
+                # sheet.write((row+13), 15, '0', line)
+                # sheet.write((row+13), 16, '0', line)
+                # sheet.write((row +13), 17, '0', line)
+                sheet.merge_range('J%s:M%s' % (str(row+12), str(row+12)), 'Total:', title_style)
+                sheet.write((row+11), 13, round(c_total_base_exento + c_total_base_imponible_16 \
+                    + c_total_base_imponible_8+total_nota_credito_16+\
+                        + total_nota_credito_8 +total_nota_debito_16 + \
+                            + total_nota_debito_8 + total_base_exento_credito +\
                                 total_base_exento_debito ,2), line)
-                sheet.write((row+14), 14, (total_iva_16 + total_iva_8 + total_iva_31 + \
-                    total_nota_credito_iva_16 + total_nota_credito_iva_8 + total_nota_credito_iva_31 + \
-                        total_nota_debito_iva_16 + total_nota_debito_iva_8 + total_nota_debito_iva_31), line)
-                sheet.write((row+14), 15, total_iva_16_retenido, line)
-                sheet.write((row+14), 16, total_iva_16_igtf, line)
-                sheet.write((row+14), 17, c_total_igtf, line)
+                sheet.write((row+11), 14, (c_total_iva_16 + c_total_iva_8 + \
+                    total_nota_credito_iva_16 + total_nota_credito_iva_8 + \
+                        total_nota_debito_iva_16 + total_nota_debito_iva_8), line)
+                sheet.write((row+11), 15, abs(total_iva_16_retenido), line)
+                sheet.write((row+11), 16, total_iva_16_igtf, line)
+                sheet.write((row+11), 17, c_total_igtf, line)
