@@ -65,7 +65,7 @@ class HREmployeeLoan(models.Model):
     job_id = fields.Many2one('hr.job',string="Cargo")
     date = fields.Date('Fecha',default=fields.Date.today())
     start_date = fields.Date('Fecha de inicio',default=fields.Date.today(),required="1")
-    period = fields.Selection([('bi-weekly','Quincenal'),('monthly','Mensual')],string='Periodo',default='monthly')
+    period = fields.Selection([('bi-weekly','Quincenal'),('monthly','Mensual')],string='Periodo',default='bi-weekly')
     end_date = fields.Date('Fecha fin',compute='_get_end_date')
     term = fields.Integer('Cuotas',required="1")
     loan_type_id = fields.Many2one('hr.employee.loan.type',string='Tipo de prestamo',required="1")
@@ -290,13 +290,13 @@ class HREmployeeLoan(models.Model):
         self.state = 'request'
         if not self.installment_lines:
             self.compute_installment()
-        if self.manager_id and self.manager_id.work_email:
-            ir_model_data = self.env['ir.model.data']
-            template_id = ir_model_data._xmlid_lookup('l10n_ve_payroll_usd.dev_dep_manager_request')[2]
-            mtp = self.env['mail.template']
-            template_id = mtp.browse(template_id)
-            template_id.write({'email_to': self.manager_id.work_email})
-            template_id.send_mail(self.ids[0], True)
+        # if self.manager_id and self.manager_id.work_email:
+        #     ir_model_data = self.env['ir.model.data']
+        #     template_id = ir_model_data._xmlid_lookup('l10n_ve_payroll_usd.dev_dep_manager_request')[2]
+        #     mtp = self.env['mail.template']
+        #     template_id = mtp.browse(template_id)
+        #     template_id.write({'email_to': self.manager_id.work_email})
+        #     template_id.send_mail(self.ids[0], True)
             
 
 
