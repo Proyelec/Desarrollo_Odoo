@@ -46,8 +46,9 @@
                 <xpath expr="//field[@name='study_field']" position="replace">
                     <field name="study_field" string="Profesión" required="1"/>
                 </xpath>
-                <!-- El siguiente xpath se ajusta para agregar campos después de un campo existente -->
+                
                 <xpath expr="//field[@name='address_id']" position="after">
+                    <field name="address_home_id" string="Dirección particular"/>
                     <field name="nationality"/>
                     <field name="identification_id"/>
                     <field name="rif"/>

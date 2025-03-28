@@ -6,18 +6,18 @@
         <field name="arch" type="xml">
             <form string="Prestamos de Empleados">
                 <header>
-                    <button name="compute_installment" string="Calcular Cuotas" class="btn-primary" type="object" groups="base.group_user" modifiers="{'invisible': [('state', '!=', 'draft')]}"/>
-                    <button name="action_send_request" string="Enviar Solicitud" class="btn-primary" type="object" groups="base.group_user" modifiers="{'invisible': [('state', '!=', 'draft')]}"/>
-                    <button name="dep_manager_approval_loan" string="Aprobar Solicitud" class="btn-primary" type="object" groups="l10n_ve_payroll_usd.group_department_manager" modifiers="{'invisible': [('state', '!=', 'request')]}"/>
-                    <button name="dep_manager_reject_loan" string="Rechazar Solicitud" class="btn-primary" type="object" groups="l10n_ve_payroll_usd.group_department_manager" modifiers="{'invisible': [('state', '!=', 'request')]}"/>
-                    <button name="cancel_loan" string="Cancelar" type="object" groups="base.group_user" modifiers="{'invisible': [('state', '!=', 'request')]}"/>
-                    <button name="hr_manager_approval_loan" string="Confirmar" class="btn-primary" type="object" groups="hr.group_hr_manager" modifiers="{'invisible': [('state', '!=', 'dep_approval')]}"/>
-                    <button name="hr_manager_reject_loan" string="Rechazar" class="btn-primary" type="object" groups="hr.group_hr_manager" modifiers="{'invisible': [('state', '!=', 'dep_approval')]}"/>
-                    <button name="paid_loan" string="Desembolsar préstamo" class="btn-primary" type="object" groups="hr.group_hr_manager" modifiers="{'invisible': [('state', '!=', 'hr_approval')]}"/>
-                    <button name="set_to_draft" string="Pasar a Borrador" class="btn-primary" type="object" groups="base.group_user" modifiers="{'invisible': [('state', '!=', 'cancel')]}"/>
-                    <button name="action_close_loan" string="Cerrar" class="btn-primary" type="object" groups="hr.group_hr_manager" modifiers="{'invisible': [('is_close', '!=', True)]}"/>
-                    <button name="action_done_loan" string="Finalizar" class="btn-primary" type="object" groups="hr.group_hr_manager" modifiers="{'invisible': [('state', '!=', 'paid')]}"/>
-                    <button name='send_loan_detail' string='Enviar Email' class="btn-primary" type="object" groups="hr.group_hr_user" modifiers="{'invisible': [('state', '!=', 'done')]}"/>
+                    <button name="compute_installment" string="Calcular Cuotas" class="btn-primary" type="object" groups="base.group_user" invisible="state != 'draft'"/>
+                    <button name="action_send_request" string="Enviar Solicitud" class="btn-primary" type="object" groups="base.group_user" invisible="state != 'draft'"/>
+                    <button name="dep_manager_approval_loan" string="Aprobar Solicitud" class="btn-primary" type="object" groups="l10n_ve_payroll_usd.group_department_manager" invisible="state != 'request'"/>
+                    <button name="dep_manager_reject_loan" string="Rechazar Solicitud" class="btn-primary" type="object" groups="l10n_ve_payroll_usd.group_department_manager" invisible="state != 'request'"/>
+                    <button name="cancel_loan" string="Cancelar" type="object" groups="base.group_user" invisible="state != 'request'"/>
+                    <button name="hr_manager_approval_loan" string="Confirmar" class="btn-primary" type="object" groups="hr.group_hr_manager" invisible="state != 'dep_approval'"/>
+                    <button name="hr_manager_reject_loan" string="Rechazar" class="btn-primary" type="object" groups="hr.group_hr_manager" invisible="state != 'dep_approval'"/>
+                    <button name="paid_loan" string="Desembolsar préstamo" class="btn-primary" type="object" groups="hr.group_hr_manager" invisible="state != 'hr_approval'"/>
+                    <button name="set_to_draft" string="Pasar a Borrador" class="btn-primary" type="object" groups="base.group_user" invisible="state != 'cancel'"/>
+                    <button name="action_close_loan" string="Cerrar" class="btn-primary" type="object" groups="hr.group_hr_manager" invisible="not is_close"/>
+                    <button name="action_done_loan" string="Finalizar" class="btn-primary" type="object" groups="hr.group_hr_manager" invisible="state != 'paid'"/>
+                    <button name="send_loan_detail" string="Enviar Email" class="btn-primary" type="object" groups="hr.group_hr_user" invisible="state != 'done'"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,request,dep_approval,hr_approval,done"/>
                 </header>
                 <sheet>

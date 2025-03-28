@@ -388,7 +388,7 @@ class HREmployeeLoan(models.Model):
         vals={
             'date':self.date,
             'ref':self.name,
-            'tax_today': trm,
+            'tax_day': trm,
             'journal_id':self.loan_type_id.journal_id and self.loan_type_id.journal_id.id,
             'company_id':self.env.company.id
         }
