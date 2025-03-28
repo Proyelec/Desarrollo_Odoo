@@ -315,46 +315,46 @@ class HREmployeeLoan(models.Model):
 
     def dep_manager_approval_loan(self):
         self.state = 'dep_approval'
-        email = self.get_hr_manager_email()
-        if email:
-            ir_model_data = self.env['ir.model.data']
-            template_id = ir_model_data._xmlid_lookup('l10n_ve_payroll_usd.dev_hr_manager_request')[2]
-            mtp = self.env['mail.template']
-            template_id = mtp.browse(template_id)
-            template_id.write({'email_to': email})
-            template_id.send_mail(self.ids[0], True)
+        # email = self.get_hr_manager_email()
+        # if email:
+        #     ir_model_data = self.env['ir.model.data']
+        #     template_id = ir_model_data._xmlid_lookup('l10n_ve_payroll_usd.dev_hr_manager_request')[2]
+        #     mtp = self.env['mail.template']
+        #     template_id = mtp.browse(template_id)
+        #     template_id.write({'email_to': email})
+        #     template_id.send_mail(self.ids[0], True)
 
     def hr_manager_approval_loan(self):
         self.state = 'hr_approval'
         employee_id = self.env['hr.employee'].search([('user_id','=',self.env.user.id)],limit=1)
         self.hr_manager_id = employee_id and employee_id.id or False
-        if self.employee_id.work_email and self.hr_manager_id:
-            ir_model_data = self.env['ir.model.data']
-            template_id = ir_model_data._xmlid_lookup('l10n_ve_payroll_usd.hr_manager_confirm_loan')[2]
-            mtp = self.env['mail.template']
-            template_id = mtp.browse(template_id)
-            template_id.write({'email_to': self.employee_id.work_email})
-            template_id.send_mail(self.ids[0], True)
+        # if self.employee_id.work_email and self.hr_manager_id:
+        #     ir_model_data = self.env['ir.model.data']
+        #     template_id = ir_model_data._xmlid_lookup('l10n_ve_payroll_usd.hr_manager_confirm_loan')[2]
+        #     mtp = self.env['mail.template']
+        #     template_id = mtp.browse(template_id)
+        #     template_id.write({'email_to': self.employee_id.work_email})
+        #     template_id.send_mail(self.ids[0], True)
 
     def dep_manager_reject_loan(self):
         self.state = 'reject'
-        if self.employee_id.work_email:
-            ir_model_data = self.env['ir.model.data']
-            template_id = ir_model_data._xmlid_lookup('l10n_ve_payroll_usd.dep_manager_reject_loan')[2]
-            mtp = self.env['mail.template']
-            template_id = mtp.browse(template_id)
-            template_id.write({'email_to': self.employee_id.work_email})
-            template_id.send_mail(self.ids[0], True)
+        # if self.employee_id.work_email:
+        #     ir_model_data = self.env['ir.model.data']
+        #     template_id = ir_model_data._xmlid_lookup('l10n_ve_payroll_usd.dep_manager_reject_loan')[2]
+        #     mtp = self.env['mail.template']
+        #     template_id = mtp.browse(template_id)
+        #     template_id.write({'email_to': self.employee_id.work_email})
+        #     template_id.send_mail(self.ids[0], True)
 
     def action_close_loan(self):
         self.state = 'close'
-        if self.employee_id.work_email and self.hr_manager_id:
-            ir_model_data = self.env['ir.model.data']
-            template_id = ir_model_data._xmlid_lookup('l10n_ve_payroll_usd.hr_manager_closed_loan')
-            mtp = self.env['mail.template']
-            template_id = mtp.browse(template_id[1])
-            template_id.write({'email_to': self.employee_id.work_email})
-            template_id.send_mail(self.ids[0], True)
+        # if self.employee_id.work_email and self.hr_manager_id:
+        #     ir_model_data = self.env['ir.model.data']
+        #     template_id = ir_model_data._xmlid_lookup('l10n_ve_payroll_usd.hr_manager_closed_loan')
+        #     mtp = self.env['mail.template']
+        #     template_id = mtp.browse(template_id[1])
+        #     template_id.write({'email_to': self.employee_id.work_email})
+        #     template_id.send_mail(self.ids[0], True)
 
 
 
@@ -362,13 +362,13 @@ class HREmployeeLoan(models.Model):
         self.state = 'reject'
         employee_id = self.env['hr.employee'].search([('user_id', '=', self.env.user.id)], limit=1)
         self.hr_manager_id = employee_id and employee_id.id or False
-        if self.employee_id.work_email and self.hr_manager_id:
-            ir_model_data = self.env['ir.model.data']
-            template_id = ir_model_data._xmlid_lookup('l10n_ve_payroll_usd.hr_manager_reject_loan')
-            mtp = self.env['mail.template']
-            template_id = mtp.browse(template_id[1])
-            template_id.write({'email_to': self.employee_id.work_email})
-            template_id.send_mail(self.ids[0], True)
+        # if self.employee_id.work_email and self.hr_manager_id:
+        #     ir_model_data = self.env['ir.model.data']
+        #     template_id = ir_model_data._xmlid_lookup('l10n_ve_payroll_usd.hr_manager_reject_loan')
+        #     mtp = self.env['mail.template']
+        #     template_id = mtp.browse(template_id[1])
+        #     template_id.write({'email_to': self.employee_id.work_email})
+        #     template_id.send_mail(self.ids[0], True)
 
     def cancel_loan(self):
         self.state = 'cancel'
