@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <odoo>
     <data>
-        <!--  vista list para el modelo hr.employee.prestaciones      -->
+
+        <!-- Vista list para prestaciones -->
         <record id="hr_employee_prestaciones_list" model="ir.ui.view">
             <field name="name">hr.employee.prestaciones.list</field>
             <field name="model">hr.employee.prestaciones</field>
@@ -34,7 +35,7 @@
             </field>
         </record>
 
-        <!-- Accion para modelo hr.employee.prestaciones -->
+        <!-- Acción para mostrar la vista -->
         <record id="hr_employee_prestaciones_action" model="ir.actions.act_window">
             <field name="name">Prestaciones Acumuladas</field>
             <field name="type">ir.actions.act_window</field>
@@ -43,10 +44,10 @@
             <field name="view_id" ref="hr_employee_prestaciones_list"/>
         </record>
 
-        <!-- Menu para modelo hr.employee.prestaciones -->
+        <!-- Menú bajo Informes de Venezuela -->
         <menuitem id="hr_employee_prestaciones_menu"
                   name="Prestaciones Acumuladas"
-                  parent="menu_venezuela_payrol_reporting"
+                  parent="menu_l10n_ve_payroll_usd_reports_group"
                   action="hr_employee_prestaciones_action"
                   sequence="41"/>
 

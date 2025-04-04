@@ -40,6 +40,16 @@
             <field name="view_id" ref="hr_payslip_wizard_faov_form_view"/>
             <field name="target">new</field>
         </record>
+<!-- 
+        <record id="l10n_ve_payroll_report_faov" model="account.report">
+            <field name="name">Aportes y Retenciones FAOV</field>
+            <field name="root_report_id" eval="False"/>
+            <field name="main_table">hr_payslip</field>
+            <field name="column_ids" eval="[(5, 0, 0)]"/>
+            <field name="filter_date">range</field>
+            <field name="filter_date_range">this_month</field>
+            <field name="show_journal_filter" eval="False"/>
+        </record> -->
 
         <menuitem
             id="menu_hr_payslip_wizard_faov_payroll"

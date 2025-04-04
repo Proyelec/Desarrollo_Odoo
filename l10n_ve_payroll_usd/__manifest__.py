@@ -74,6 +74,4 @@
         'report/report_ivss_14100.xml',
     ],
     "license": "GPL-2",
-    "price": 4000,
-    "currency": "USD",
 }

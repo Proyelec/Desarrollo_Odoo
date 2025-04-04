@@ -54,21 +54,20 @@ class HRPayslipWizardFAOV(models.TransientModel):
     @api.onchange('type')
     def _onchange_type(self):
         if not self.structure_ids:
-            #buscar estructuras semanal, quincenal y mensual con ref xml l10n_ve_payroll_usd.structure_semanal, l10n_ve_payroll_usd.structure_quincenal, l10n_ve_payroll_usd.structure_mensual
             struc_ids = []
-            structure_semanal_id = self.env.ref('l10n_ve_payroll_usd.structure_semanal').id
-            if structure_semanal_id:
-                struc_ids.append(structure_semanal_id)
-            structure_quincenal_id = self.env.ref('l10n_ve_payroll_usd.structure_quincenal').id
-            if structure_quincenal_id:
-                struc_ids.append(structure_quincenal_id)
-            structure_mensual_id = self.env.ref('l10n_ve_payroll_usd.structure_mensual').id
-            if structure_mensual_id:
-                struc_ids.append(structure_mensual_id)
-            #agregar a self.structure_ids
+            for xml_id in [
+                'l10n_ve_payroll_usd.structure_semanal',
+                'l10n_ve_payroll_usd.structure_quincenal',
+                'l10n_ve_payroll_usd.structure_mensual',
+            ]:
+                try:
+                    struc_ids.append(self.env.ref(xml_id).id)
+                except ValueError:
+                    continue
             if struc_ids:
-                self.structure_ids = [(6, 0, [structure_semanal_id, structure_quincenal_id, structure_mensual_id])]
+                self.structure_ids = [(6, 0, struc_ids)]
                 self._onchange_structure_ids()
+
 
 
 
