@@ -382,56 +382,56 @@ class HREmployeeLoan(models.Model):
     def paid_loan(self):
         if not self.employee_id.address_home_id:
             raise ValidationError(_('Por favor, agregue la dirección del empleado !!!'))
-            
+
         self.state = 'paid'
         trm = self.currency_id_dif.inverse_rate
-        vals={
-            'date':self.date,
-            'ref':self.name,
+        vals = {
+            'date': self.date,
+            'ref': self.name,
             'tax_day': trm,
-            'journal_id':self.loan_type_id.journal_id and self.loan_type_id.journal_id.id,
-            'company_id':self.env.company.id
+            'journal_id': self.loan_type_id.journal_id.id if self.loan_type_id.journal_id else False,
+            'company_id': self.env.company.id
         }
         acc_move_id = self.env['account.move'].create(vals)
+
         if acc_move_id:
             lst = []
-            credit = self.loan_amount * trm
-            interest_credit = 0
-            val = (0,0,{
-                            'account_id':self.loan_type_id and self.loan_type_id.loan_account.id,
-                            'partner_id':self.employee_id.address_home_id and self.employee_id.address_home_id.id or False,
-                            'name':self.name,
-                            'credit':credit or 0.0,
-                            'move_id': acc_move_id.id,
-                        })
-            lst.append(val)
+            debit = self.loan_amount * trm
+            interest_debit = 0
 
+            # Línea débito - cuenta por cobrar al empleado
+            receivable_account = self.employee_id.address_home_id.property_account_payable_id.id
+            lst.append((0, 0, {
+                'account_id': receivable_account,
+                'partner_id': self.employee_id.address_home_id.id,
+                'name': self.name,
+                'debit': debit,
+                'move_id': acc_move_id.id,
+            }))
+
+            # Línea crédito - préstamo
+            lst.append((0, 0, {
+                'account_id': self.loan_type_id.loan_account.id,
+                'partner_id': self.employee_id.address_home_id.id,
+                'name': self.name,
+                'credit': debit,
+                'move_id': acc_move_id.id,
+            }))
+
+            # Línea crédito - interés (si aplica)
             if self.interest_amount:
-                interest_credit = self.interest_amount * trm
-                val = (0,0,{
-                                'account_id':self.loan_type_id and self.loan_type_id.interest_account.id,
-                                'partner_id':self.employee_id.address_home_id and self.employee_id.address_home_id.id or False,
-                                'name':str(self.name)+' - '+'Interest',
-                                'credit':interest_credit,
-                                'move_id': acc_move_id.id,
-                            })
-                lst.append(val)
+                interest_debit = self.interest_amount * trm
+                lst.append((0, 0, {
+                    'account_id': self.loan_type_id.interest_account.id,
+                    'partner_id': self.employee_id.address_home_id.id,
+                    'name': f"{self.name} - Interés",
+                    'credit': interest_debit,
+                    'move_id': acc_move_id.id,
+                }))
 
-            credit_account=False
-            if self.employee_id.address_home_id and self.employee_id.address_home_id.property_account_payable_id:
-                credit_account = self.employee_id.address_home_id.property_account_payable_id.id or False
+                # Incrementar también el débito por interés
+                lst[0][2]['debit'] += interest_debit
 
-            debit_amount = credit
-            if self.interest_amount:
-                debit_amount += interest_credit
-            val = (0,0,{
-                            'account_id':credit_account or False,
-                            'partner_id':self.employee_id.address_home_id and self.employee_id.address_home_id.id or False,
-                            'name':self.name,
-                            'debit':debit_amount  or 0.0,
-                            'move_id': acc_move_id.id,
-                        })
-            lst.append(val)
             acc_move_id.line_ids = lst
             self.move_id = acc_move_id.id
 
