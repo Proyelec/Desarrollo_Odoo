@@ -40,7 +40,7 @@
         <menuitem
             id="menu_hr_employee_wizard_ivss_employee"
             name="Constancia IVSS FORMA: 14-100"
-            parent="hr.hr_menu_hr_reports"
+            parent="menu_l10n_ve_payroll_usd_reports_group"
             action="hr_employee_wizard_ivss_action"
             sequence="31"/>
 

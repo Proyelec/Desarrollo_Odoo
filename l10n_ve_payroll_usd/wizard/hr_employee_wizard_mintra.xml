@@ -42,7 +42,7 @@
         <menuitem
             id="menu_hr_employee_wizard_mintra_employee"
             name="TXT MINTRA"
-            parent="hr.hr_menu_hr_reports"
+            parent="menu_l10n_ve_payroll_usd_reports_group"
             action="hr_employee_wizard_mintra_action"
             sequence="30"/>
 

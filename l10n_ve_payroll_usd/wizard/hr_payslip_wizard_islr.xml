@@ -40,7 +40,7 @@
         <menuitem
             id="menu_hr_payslip_wizard_islr_payroll"
             name="Comprobante de Retenciones Varias ARC-V"
-            parent="menu_venezuela_payrol_reporting"
+            parent="menu_l10n_ve_payroll_usd_reports_group"
             action="hr_payslip_wizard_islr_action"
             sequence="31"/>
 

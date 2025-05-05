@@ -332,42 +332,50 @@ class HRPayslip(models.Model):
                 anio = rec.date_to.year
                 dias_abonados = 0
                 dias_adicional = 0
-                verificar = self.env['hr.employee.prestaciones'].search([('employee_id', '=', rec.employee_id.id),
-                                                                         ('anio', '=', anio),
-                                                                         ('mes_opera', '=', mes_operacion)])
+
+                verificar = self.env['hr.employee.prestaciones'].search([
+                    ('employee_id', '=', rec.employee_id.id),
+                    ('anio', '=', anio),
+                    ('mes_opera', '=', mes_operacion)
+                ])
+
                 if not verificar:
                     employee_id = rec.employee_id.id
                     salario_base = 0
                     salario_base_diario = 0
                     salario_integral = 0
                     salario_integral_diario = 0
-                    dias_abonados = 0
-                    dias_adicional = 0
                     mes_cump = 1
-                    #fecha inicio de mes
+
                     fecha_inicio_mes = datetime(anio, mes_operacion, 1)
-                    #fecha fin de mes
                     fecha_fin_mes = datetime(anio, mes_operacion, calendar.monthrange(anio, mes_operacion)[1])
-                    #buscar el monto cobrado en el mes consultando los hr.payslip.line con las categorías basico y subsidio
+
                     category_hr_payroll_BASIC = self.env.ref('hr_payroll.BASIC').id
                     category_hr_payroll_SUBS = self.env.ref('l10n_ve_payroll_usd.category_asignacion_subsidio').id
-                    payslip_line = self.env['hr.payslip.line'].search([('category_id', 'in',
-                                                                        [category_hr_payroll_BASIC,
-                                                                         category_hr_payroll_SUBS]),('slip_id.date_from', '>=', fecha_inicio_mes),
-                                                                          ('slip_id.date_to', '<=', fecha_fin_mes),
-                                                                            ('employee_id', '=', employee_id),('slip_id.struct_id.procesar_prestaciones','=',True)])
-                    line_ADEP = self.env['hr.payslip.line'].search([('code', '=', 'ADEP'), ('slip_id.date_from', '>=', fecha_inicio_mes),
-                                                                          ('slip_id.date_to', '<=', fecha_fin_mes),
-                                                                            ('employee_id', '=', employee_id)])
-                    adelanto_prestaciones = 0
-                    if line_ADEP:
-                        adelanto_prestaciones = sum(line_ADEP.mapped('total'))
+
+                    payslip_line = self.env['hr.payslip.line'].search([
+                        ('category_id', 'in', [category_hr_payroll_BASIC, category_hr_payroll_SUBS]),
+                        ('slip_id.date_from', '>=', fecha_inicio_mes),
+                        ('slip_id.date_to', '<=', fecha_fin_mes),
+                        ('employee_id', '=', employee_id),
+                        ('slip_id.struct_id.procesar_prestaciones', '=', True)
+                    ])
+
+                    line_ADEP = self.env['hr.payslip.line'].search([
+                        ('code', '=', 'ADEP'),
+                        ('slip_id.date_from', '>=', fecha_inicio_mes),
+                        ('slip_id.date_to', '<=', fecha_fin_mes),
+                        ('employee_id', '=', employee_id)
+                    ])
+
+                    adelanto_prestaciones = sum(line_ADEP.mapped('total')) if line_ADEP else 0
+
                     if payslip_line:
                         salario_base = sum(payslip_line.mapped('total'))
                         salario_base_diario = salario_base / 30
 
-                        utilidades_fracionadas = (salario_base_diario * rec.contract_id.dias_utilidades)/360
-                        vacaciones_fracionadas = (salario_base_diario * rec.contract_id.dias_provision_vaca)/360
+                        utilidades_fracionadas = (salario_base_diario * rec.contract_id.dias_utilidades) / 360
+                        vacaciones_fracionadas = (salario_base_diario * rec.contract_id.dias_provision_vaca) / 360
 
                         salario_integral = salario_base_diario + utilidades_fracionadas + vacaciones_fracionadas
 
@@ -375,11 +383,15 @@ class HRPayslip(models.Model):
                             dias_abonados = 5
                         else:
                             dias_abonados = 15
-                            meses_incluidos = self.env['hr.employee.prestaciones'].search([('employee_id', '=', rec.employee_id.id),
-                                                                 ('anio', '=', anio),('dias_abonados','>',0)], order='mes_opera asc', limit=1)
+                            meses_incluidos = self.env['hr.employee.prestaciones'].search([
+                                ('employee_id', '=', rec.employee_id.id),
+                                ('anio', '=', anio),
+                                ('dias_abonados', '>', 0)
+                            ], order='mes_opera asc', limit=1)
+
                             if meses_incluidos:
                                 mes_cump = meses_incluidos.mes_cump + 1
-                                if (meses_incluidos.mes_cump/3).is_integer():
+                                if (meses_incluidos.mes_cump / 3).is_integer():
                                     dias_abonados = 15
                                 else:
                                     dias_abonados = 0
@@ -393,9 +405,48 @@ class HRPayslip(models.Model):
                     if salario_integral > 0:
                         company_id = rec.company_id.id
                         currency_id = rec.company_id.currency_id.id
+
                         monto_presta = salario_integral * dias_abonados
                         monto_adici = salario_integral * dias_adicional
-                        tasa_interes = 15 #buscar la tasa de interes vigente en Parámetros de la regla salarial codigo TASAP
+
+                        # Buscar la tasa de interés vigente
+                        tasa = self.env['hr.prestaciones.interes'].search(
+                            [('fecha_vigencia', '<=', fields.Date.today())],
+                            order='fecha_vigencia desc',
+                            limit=1
+                        )
+                        tasa_interes = tasa.tasa_interes if tasa else 0.0
+
+                        monto_interes = ((monto_presta + monto_adici) * (tasa_interes / 100.0) / 12)
+
+                        # Buscar el último registro de prestaciones acumuladas
+                        ultimo_registro = self.env['hr.employee.prestaciones'].search([
+                            ('employee_id', '=', employee_id)
+                        ], order="anio desc, mes_opera desc", limit=1)
+
+                        # Inicializar acumulados
+                        monto_prestaciones_acumulado = monto_presta
+                        monto_interes_acumulado = 0.0
+                        monto_total_anterior = 0.0
+                        monto_presta_acumulado_anterior = 0.0
+                        dias_acumulados = 0.00
+
+                        if ultimo_registro:
+                            monto_presta_acumulado_anterior = ultimo_registro.monto_presta_acumulado
+                            monto_prestaciones_acumulado += monto_presta_acumulado_anterior
+                            monto_interes_acumulado = ultimo_registro.monto_interes_acumulado
+                            monto_total_anterior = ultimo_registro.monto_total
+                            dias_acumulados = ultimo_registro.dias_acumulados  # <-- aquí el cambio
+
+                        # Calcular interés sobre monto acumulado anterior (no sobre el actual)
+                        monto_interes = monto_presta_acumulado_anterior * (tasa_interes / 100.0) / 12
+                        monto_interes_acumulado += monto_interes
+                        
+                        #Acumulado de días abonados.
+                        dias_acumulados += dias_abonados
+
+                        # Calcular el total acumulado general
+                        monto_total = monto_total_anterior + monto_presta + monto_adici + monto_interes
 
 
                         data = {
@@ -407,13 +458,20 @@ class HRPayslip(models.Model):
                             'salario_base_diario': salario_base_diario,
                             'salario_integral': salario_integral,
                             'dias_abonados': dias_abonados,
+                            'dias_acumulados': dias_acumulados,
                             'dias_adici': dias_adicional,
                             'monto_presta': monto_presta,
                             'monto_adici': monto_adici,
                             'tasa_interes': tasa_interes,
+                            'monto_interes': monto_interes,
+                            'monto_interes_acumulado': monto_interes_acumulado,
                             'monto_retiro': adelanto_prestaciones,
+                            'monto_presta_acumulado': monto_prestaciones_acumulado,
+                            'monto_total': monto_total,
                             'company_id': company_id,
+                            'currency_id': currency_id,
                         }
+
                         presta_id = self.env['hr.employee.prestaciones'].create(data)
                         if presta_id:
                             rec.pestaciones_id = presta_id.id

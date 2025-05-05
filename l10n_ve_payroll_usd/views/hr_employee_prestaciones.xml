@@ -24,7 +24,7 @@
                     <field name="monto_adici" optional="hide"/>
                     <field name="monto_adici_acumulado" optional="hide"/>
                     <field name="monto_retiro" optional="hide"/>
-                    <field name="monto_acumulado"/>
+                    <!-- <field name="monto_acumulado"/> -->
                     <field name="tasa_interes" optional="hide"/>
                     <field name="monto_interes"/>
                     <field name="monto_interes_acumulado"/>
@@ -52,4 +52,5 @@
                   sequence="41"/>
 
     </data>
+
 </odoo>

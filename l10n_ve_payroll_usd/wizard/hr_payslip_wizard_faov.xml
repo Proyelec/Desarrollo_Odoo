@@ -54,7 +54,7 @@
         <menuitem
             id="menu_hr_payslip_wizard_faov_payroll"
             name="Aportes y Retenciones FAOV"
-            parent="menu_venezuela_payrol_reporting"
+            parent="menu_l10n_ve_payroll_usd_reports_group"
             action="hr_payslip_wizard_faov_action"
             sequence="31"/>
 

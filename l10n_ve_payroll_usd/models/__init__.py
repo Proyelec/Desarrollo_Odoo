@@ -14,6 +14,7 @@ from . import hr_payslip_input_type
 from . import hr_contract_type
 from . import hr_leave
 from . import hr_employee_prestaciones
+from . import hr_employee_tasas_interes
 from . import res_config_settings
 from . import hr_employee_vacaciones
 from . import hr_employee_loan_type

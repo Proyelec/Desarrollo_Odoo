@@ -377,8 +377,6 @@ class HREmployeeLoan(models.Model):
         self.state = 'draft'
         self.hr_manager_id = False
 
-
-
     def paid_loan(self):
         if not self.employee_id.address_home_id:
             raise ValidationError(_('Por favor, agregue la dirección del empleado !!!'))
@@ -435,6 +433,7 @@ class HREmployeeLoan(models.Model):
             acc_move_id.line_ids = lst
             self.move_id = acc_move_id.id
 
+
     def view_journal_entry(self):
         if self.move_id:
             return {
@@ -444,12 +443,9 @@ class HREmployeeLoan(models.Model):
                 'view_type': 'form',
                 'type': 'ir.actions.act_window',
             }
-            
-            
+                     
     def action_done_loan(self):
         self.state = 'done'
-
-
 
     @api.model
     def create(self, vals):

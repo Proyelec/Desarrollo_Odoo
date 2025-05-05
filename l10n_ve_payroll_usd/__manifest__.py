@@ -62,6 +62,7 @@
         'wizard/hr_payslip_wizard_islr.xml',
         'views/hr_contract_type.xml',
         'views/hr_employee_prestaciones.xml',
+        'views/hr_employee_tasas_interes.xml',
         'views/report_templates.xml',
         'views/hr_employee_vacaciones.xml',
         'report/l10n_ve_payroll_planilla_islr.xml',

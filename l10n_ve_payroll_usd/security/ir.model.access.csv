@@ -4,6 +4,7 @@ access_hr_employee_wizard_mintra,hr.employee.wizard.mintra,model_hr_employee_wiz
 access_hr_payslip_wizard_faov,hr.payslip.wizard.faov,model_hr_payslip_wizard_faov,base.group_user,1,1,1,1
 access_hr_payslip_wizard_islr,hr.payslip.wizard.islr,model_hr_payslip_wizard_islr,base.group_user,1,1,1,1
 access_hr_employee_prestaciones,hr.employee.prestaciones,model_hr_employee_prestaciones,base.group_user,1,1,1,1
+access_hr_prestaciones_interes,hr.prestaciones.interes,model_hr_prestaciones_interes,base.group_user,1,1,1,1
 access_hr_employee_vacaciones,hr.employee.vacaciones,model_hr_employee_vacaciones,base.group_user,1,1,1,1
 access_hr_employee_loan,hr.employee.loan,model_hr_employee_loan,base.group_user,1,1,1,1
 access_hr_employee_loan_type,hr.employee.loan.type,model_hr_employee_loan_type,base.group_user,1,1,1,1

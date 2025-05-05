@@ -22,6 +22,6 @@
 
     <!-- menu para modelo hr.employee.vacaciones -->
 
-    <menuitem id="hr_employee_vacaciones_menu" name="Historico de Vacaciones" parent="menu_venezuela_payrol_reporting" sequence="42" action="hr_employee_vacaciones_action"/>
+    <menuitem id="hr_employee_vacaciones_menu" name="Historico de Vacaciones" parent="menu_l10n_ve_payroll_usd_reports_group" sequence="42" action="hr_employee_vacaciones_action"/>
 
 </odoo>
