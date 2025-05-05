@@ -328,6 +328,9 @@ class HRPayslip(models.Model):
     def procesar_prestaciones(self):
         for rec in self:
             if rec.date_to.day >= 28:
+                if rec.company_id.periodo_prestaciones == 'trimestral' and rec.date_to.month not in [3, 6, 9, 12]:
+                    continue  # Saltar meses que no cierran trimestre
+
                 mes_operacion = rec.date_to.month
                 anio = rec.date_to.year
                 dias_abonados = 0
@@ -371,7 +374,7 @@ class HRPayslip(models.Model):
                     adelanto_prestaciones = sum(line_ADEP.mapped('total')) if line_ADEP else 0
 
                     if payslip_line:
-                        salario_base = sum(payslip_line.mapped('total'))
+                        salario_base = rec.contract_id.wage_ref
                         salario_base_diario = salario_base / 30
 
                         utilidades_fracionadas = (salario_base_diario * rec.contract_id.dias_utilidades) / 360
@@ -381,8 +384,8 @@ class HRPayslip(models.Model):
 
                         if rec.company_id.periodo_prestaciones == 'mensual':
                             dias_abonados = 5
-                        else:
-                            dias_abonados = 15
+                            mes_cump = 1
+                        else:  # Trimestral
                             meses_incluidos = self.env['hr.employee.prestaciones'].search([
                                 ('employee_id', '=', rec.employee_id.id),
                                 ('anio', '=', anio),
@@ -395,12 +398,14 @@ class HRPayslip(models.Model):
                                     dias_abonados = 15
                                 else:
                                     dias_abonados = 0
-                                if (meses_incluidos.mes_cump / 12).is_integer():
-                                    dias_adicional = 2 * (meses_incluidos.mes_cump / 12)
-                                    if dias_adicional > 30:
-                                        dias_adicional = 30
+                                anios_cumplidos = int(meses_incluidos.mes_cump / 12)
+                                dias_adicional = 0
+                                if anios_cumplidos > 2:
+                                    dias_adicional = 2 * (anios_cumplidos - 2)
+                                    dias_adicional = min(dias_adicional, 30)
                             else:
-                                dias_abonados = 0
+                                dias_abonados = 15
+                                mes_cump = 3
 
                     if salario_integral > 0:
                         company_id = rec.company_id.id
