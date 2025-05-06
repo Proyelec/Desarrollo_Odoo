@@ -51,7 +51,7 @@ class AccountMove(models.Model):
         if res_currency_id and res_currency_id.rate_ids:
             rate_day = res_currency_id.rate_ids.sorted('name', reverse=True)[:1]
             tx = Decimal(str(rate_day.company_rate))
-            tx_amount = tx.quantize(Decimal('1.00'), rounding=ROUND_DOWN)
+            tx_amount = tx.quantize(Decimal('1.00'))
             return tx_amount
         else :
             return   1.00
@@ -100,7 +100,7 @@ class AccountMove(models.Model):
                         impuestod = Decimal(str(impuesto.amount))
                         impuesto_nombre = impuesto.name
                         impuesto_valor = subtoal_amount_bs * impuestod / 100
-                        impuesto_valor = impuesto_valor.quantize(Decimal('1.00'), rounding=ROUND_DOWN)
+                        impuesto_valor = impuesto_valor.quantize(Decimal('1.00'))
                         if impuesto_nombre in impuestos_totales:
                             impuestos_totales[impuesto_nombre] += impuesto_valor
                         else:
@@ -193,14 +193,14 @@ class AccountMove(models.Model):
                     amount_residual = Decimal(str(move.amount_residual ))
 
                     amount_untaxed_bs = amount_untaxed * tax_day
-                    amount_untaxed_bs = amount_untaxed_bs.quantize(Decimal('1.00'), rounding=ROUND_DOWN)
+                    amount_untaxed_bs = amount_untaxed_bs.quantize(Decimal('1.00'))
     
 
-                    TOTAL = (Decimal(total_amount_untaxed) * Decimal(tax_day) + (Decimal(total_impuestoUSD) * Decimal(tax_day))  ).quantize(Decimal('1.00'),rounding=ROUND_DOWN)
+                    TOTAL = (Decimal(total_amount_untaxed) * Decimal(tax_day) + (Decimal(total_impuestoUSD) * Decimal(tax_day))  ).quantize(Decimal('1.00')
                     
                     
                     amount_residual_bs = amount_residual * tax_day
-                    amount_residual_bs = amount_residual_bs.quantize(Decimal('1.00'), rounding=ROUND_DOWN)
+                    amount_residual_bs = amount_residual_bs.quantize(Decimal('1.00'))
                     
                     move.amount_untaxed_bs = str_total_amount_untaxed #amount_untaxed_bs
                     move.amount_tax_bs = str_total_impuestoUSD
@@ -288,7 +288,7 @@ class InheritMoveLine(models.Model):
                 
                 if line.price_subtotal and  line.move_id.tax_day:
                     subtoal_amount_bs = price_subtotal * tax_day
-                    subtoal_amount_bs = subtoal_amount_bs.quantize(Decimal('1.00'), rounding=ROUND_DOWN)
+                    subtoal_amount_bs = subtoal_amount_bs.quantize(Decimal('1.00'))
                     line.subtoal_amount_bs= subtoal_amount_bs
             
                 else :
@@ -303,7 +303,7 @@ class InheritMoveLine(models.Model):
             tax_day = Decimal(str(line.move_id.tax_day))  
             if line.price_unit and  line.move_id.tax_day:
                 price_unit_bs = price_subtotal * tax_day
-                price_unit_bs = price_unit_bs.quantize(Decimal('1.00'), rounding=ROUND_DOWN)
+                price_unit_bs = price_unit_bs.quantize(Decimal('1.00'))
                 line.price_unit_bs = float(price_unit_bs)
             elif line.product_id:
                 line.price_unit_bs = line.product_id.price_bs
@@ -319,7 +319,7 @@ class InheritMoveLine(models.Model):
                     price_unit = Decimal(str(line.price_unit))
                     tax_day = Decimal(str(line.move_id.tax_day))
                     price_unit_bs = price_unit * tax_day
-                    price_unit_bs = price_unit_bs.quantize(Decimal('1.00'), rounding=ROUND_DOWN)
+                    price_unit_bs = price_unit_bs.quantize(Decimal('1.00'))
                     line.price_unit_bs = price_unit_bs
                 elif line.product_id:
                     line.price_unit_bs = line.product_id.price_bs
