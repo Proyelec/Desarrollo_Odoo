@@ -50,7 +50,7 @@ class HRPayslipLine(models.Model):
                     order='create_date desc',
                     limit=1
                 )
-                valor_dias = prestaciones.dias_acumulados if prestaciones else 0
+                valor_dias = prestaciones.dias_acumulados + prestaciones.dias_adici_acumulado if prestaciones else 0
             elif rec.code == 'GPSC':
                 prestaciones = self.env['hr.employee.prestaciones'].search(
                     [('employee_id', '=', rec.slip_id.employee_id.id)],
