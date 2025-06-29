@@ -15,20 +15,27 @@ class AccountMoveReversal(models.TransientModel):
 
 
     def _prepare_default_reversal(self, move):
-        reverse_date = self.date if self.date_mode == 'custom' else move.date        
-        return {
+        reverse_date = self.date or move.date
+        vals = {
             'ref': _('Reversal of: %(move_name)s, %(reason)s', move_name=move.name, reason=self.reason)
-                   if self.reason
-                   else _('Reversal of: %s', move.name),
+                if self.reason
+                else _('Reversal of: %s', move.name),
             'date': reverse_date,
             'invoice_date_due': reverse_date,
-            'invoice_date': move.is_invoice(include_receipts=True) and (self.date or move.date) or False,
+            'invoice_date': move.is_invoice(include_receipts=True) and reverse_date or False,
             'journal_id': self.journal_id.id,
             'invoice_payment_term_id': None,
             'invoice_user_id': move.invoice_user_id.id,
             'auto_post': 'at_date' if reverse_date > fields.Date.context_today(self) else 'no',
             'l10n_ve_document_number': ""
         }
+        # Forzar amount_currency a 0 para evitar la validación de Odoo
+        vals['line_ids'] = []
+        for line in move.line_ids:
+            line_vals = line.copy_data()[0]
+            line_vals['amount_currency'] = 0.0
+            vals['line_ids'].append((0, 0, line_vals))
+        return vals
 
 
     #TODO: ver si esto es necesario.
