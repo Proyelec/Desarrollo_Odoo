@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_so_to_po_wizard,proyelec.so.to.po.wizard,model_proyelec_so_to_po_wizard,base.group_user,1,1,1,1
+access_so_to_po_wizard_line,proyelec.so.to.po.wizard.line,model_proyelec_so_to_po_wizard_line,base.group_user,1,1,1,1
