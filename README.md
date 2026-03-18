@@ -1,117 +1,133 @@
-# Desarrollo_Odoo — Módulos Personalizados Odoo 17
+# odoo17-custom-modules
 
-Repositorio oficial de módulos Odoo 17 desarrollados por **AIT Proyelec** para **Proyelec International C.A.**
+Custom Odoo 17 modules developed for production environments running on Odoo.sh.
 
----
-
-## Contexto
-
-Proyelec opera sobre Odoo 17 en Odoo.sh, con un proveedor principal (**Contables Boyer**) que gestiona los módulos fiscales venezolanos (retenciones, conciliación bancaria, reportes fiscales). Este repositorio contiene módulos desarrollados de forma independiente por el equipo de AIT Proyelec para cubrir necesidades operativas específicas, sin interferir con los módulos de Boyer.
-
-**Entorno de desarrollo:** Rama staging `Test7` en Odoo.sh (`proyelec-test7-26614961`)  
-**Módulos personalizados en servidor:** `/home/odoo/src/user/`  
-**Comandos de instalación:** `odoo-bin -d proyelec-test7-26614961 -c /etc/odoo/odoo.conf -i nombre_modulo --stop-after-init`  
-**Comando de actualización:** `odoo-update nombre_modulo`
+Each module follows Odoo 17 best practices: model inheritance over rewriting, no deprecated parameters, surgical interventions that avoid touching unrelated functionality.
 
 ---
 
-## Principios de Desarrollo
+## Development Environment
 
-- **Herencia sobre reescritura** — Todos los módulos usan `_inherit` para extender modelos existentes, nunca se reescriben.
-- **Intervenciones quirúrgicas** — Cada módulo modifica únicamente lo necesario, sin afectar funcionalidades globales.
-- **Patrones correctos de Odoo 17** — Sin parámetros deprecados (`states`, `track_visibility`, `digits` en fields).
-- **Límite claro con Boyer** — No se tocan módulos de contabilidad fiscal venezolana. Todo lo que involucre retenciones, conciliación o reportes fiscales queda bajo responsabilidad de Contables Boyer.
+- **Platform:** Odoo.sh
+- **Version:** Odoo 17
+- **Custom modules path:** `/home/odoo/src/user/`
+- **Install:** `odoo-bin -d <database> -c /etc/odoo/odoo.conf -i <module_name> --stop-after-init`
+- **Update:** `odoo-update <module_name>`
 
 ---
 
-## Módulos
+## Modules
+
+### `analytic_account_close_lock`
+
+**Purpose:** Adds a "Closed for Posting" flag to analytic accounts to prevent new imputations after a project or period has been formally closed and reported.
+
+**Problem solved:** In standard Odoo 17, there is no native way to block new analytic imputations on a per-account basis once a project is closed and its report has been submitted. Lock Dates only protect by accounting date, not by analytic account status.
+
+**Technical solution:**
+- Boolean field `x_closed_for_posting` on `account.analytic.account`
+- `ValidationError` raised on `account.move.line` (invoices, bills, journal entries) and `account.analytic.line` (timesheets, expenses) if the target analytic account is closed
+- Handles both simple and compound keys in `analytic_distribution` dict (Odoo 17 format)
+- Records closure date (`x_closed_date`) and responsible user (`x_closed_by`) automatically
+- Warning banner displayed on the analytic account form when closed
+- Security group `Analytic Close Manager` — only members can close or reopen accounts
+
+**Dependencies:** `account`, `analytic`
+**Affects:** `account.analytic.account`, `account.move.line`, `account.analytic.line`
+**Risk:** Low
+
+---
 
 ### `proyelec_chatter_fix`
 
-**Propósito:** Corrección del comportamiento del chatter en el modelo `res.partner`.
+**Purpose:** Fixes chatter behavior on the `res.partner` model.
 
-**Problema que resuelve:** El chatter en ciertas vistas de contactos no mostraba correctamente el historial de mensajes y seguimiento.
+**Problem solved:** The chatter in certain contact views was not correctly displaying message history and tracking.
 
-**Solución técnica:** Herencia del modelo `res.partner` con ajuste quirúrgico en la lógica de visualización del chatter, sin modificar el módulo base de mensajería.
+**Technical solution:** Minimal inheritance of `res.partner` with a targeted fix on chatter display logic, without modifying the base messaging module.
 
-**Dependencias:** `mail`  
-**Afecta:** `res.partner`  
-**Riesgo:** Bajo
+**Dependencies:** `mail`
+**Affects:** `res.partner`
+**Risk:** Low
 
 ---
 
 ### `proyelec_so_to_po`
 
-**Propósito:** Asistente (wizard) para convertir líneas de una Orden de Venta (SO) en una Orden de Compra (PO).
+**Purpose:** Wizard to convert selected Sale Order lines into a Purchase Order.
 
-**Problema que resuelve:** El proceso manual de trasladar ítems cotizados desde una SO a una PO era propenso a errores y consumía tiempo. Además, Boyer utiliza un módulo de terceros que transfiere todas las líneas de la SO sin filtrar, lo que generaba ruido operativo.
+**Problem solved:** The manual process of transferring quoted items from an SO to a PO was error-prone. Available third-party solutions transferred all lines indiscriminately without filtering.
 
-**Solución técnica:**
-- Wizard heredado que lee las líneas de la SO activa
-- Filtra únicamente las líneas marcadas como ganadas (`x_studio_ganado = True`)
-- Genera la PO con los proveedores, precios y cantidades correspondientes
-- Incluye reglas de seguridad y vistas propias
+**Technical solution:**
+- Wizard that reads active SO lines
+- Filters only lines marked as won (`x_studio_ganado = True`)
+- Generates a PO with the corresponding vendors, prices and quantities
+- Includes access rules and dedicated views
 
-**Dependencias:** `sale_margin`, `purchase`  
-**Afecta:** `sale.order`, wizard de conversión  
-**Riesgo:** Medio — requiere que el campo `x_studio_ganado` esté presente (creado por Studio)
+**Dependencies:** `sale_margin`, `purchase`
+**Affects:** `sale.order`, conversion wizard
+**Risk:** Medium — requires `x_studio_ganado` field created via Studio
 
 ---
 
 ### `proyelec_so_to_po_v2`
 
-**Propósito:** Versión refactorizada del módulo `proyelec_so_to_po`.
+**Purpose:** Refactored version of `proyelec_so_to_po`.
 
-**Mejoras sobre v1:**
-- Implementación más limpia usando el modelo `purchase_order_wizard`
-- Mejor manejo de casos borde (líneas sin proveedor, precios en cero)
-- Código más mantenible y documentado
+**Improvements over v1:**
+- Cleaner implementation using `purchase_order_wizard` model
+- Better handling of edge cases (lines without vendor, zero prices)
+- More maintainable and documented code
 
-**Estado:** Versión activa en uso. La v1 se mantiene en el repositorio como referencia histórica.
+**Status:** Active version in use. v1 kept for historical reference.
 
-**Dependencias:** `sale_margin`, `purchase`  
-**Afecta:** `sale.order`, wizard de conversión  
-**Riesgo:** Medio
+**Dependencies:** `sale_margin`, `purchase`
+**Affects:** `sale.order`, conversion wizard
+**Risk:** Medium
 
 ---
 
 ### `proyelec_procura_kpi`
 
-**Propósito:** Campo computado de KPI de efectividad de renglones para el proyecto PROCURA.
+**Purpose:** Computed KPI field for bid line effectiveness on a specific project.
 
-**Problema que resuelve:** El proyecto PROCURA maneja 4 propiedades de tareas (Renglones Ofertados, Solicitados, Fuera de Tiempo y Ganados) almacenadas como campo JSON dinámico (`task_properties`). Este tipo de campo no es filtrable ni ordenable en la interfaz estándar de Odoo. Adicionalmente, la gerencia necesitaba un indicador de efectividad visible directamente en las vistas.
+**Problem solved:** Project task properties stored as a dynamic JSON field (`task_properties`) are not filterable or sortable in Odoo's standard interface. Management needed a visible effectiveness indicator directly in task views.
 
-**Solución técnica:**
-- Campo `x_kpi_efectividad` (Float, `store=True`) computado automáticamente
-- Fórmula: `(Renglones Ganados / Renglones Ofertados) * 100`
-- Lee directamente del dict `task_properties` usando los hashes de cada propiedad
-- Solo aplica a tareas del proyecto PROCURA (`project_id = 1019`)
-- Vista lista: columna con widget `progressbar` (opcional, visible por defecto)
-- Vista kanban: badge verde con el porcentaje cuando KPI > 0
-- Vista search: filtro rápido "Con Renglones (PROCURA)"
+**Technical solution:**
+- Computed field `x_kpi_efectividad` (Float, `store=True`)
+- Formula: `(Won Lines / Offered Lines) * 100`
+- Reads directly from `task_properties` dict using property hashes
+- Scoped to a specific project via `PROCURA_PROJECT_ID` constant
+- List view: progress bar column (optional, visible by default)
+- Kanban view: green badge when KPI > 0
+- Search view: quick filter for tasks with lines
 
-**Hashes de propiedades PROCURA** (definidos en `task_properties_definition`):
+**⚠️ Note for new environments:** `PROCURA_PROJECT_ID` in `models/project_task.py` is hardcoded for the staging database. Verify and update the project ID before deploying to a different environment.
 
-| Propiedad | Hash |
-|---|---|
-| Renglones Ofertados | `d586b6ea5f215286` |
-| Renglones Fuera de Tiempo | `22ad07ba6464c583` |
-| Renglones Solicitados | `07c5531119478422` |
-| Renglones Ganados | `38a0d51c237f9082` |
-
-**⚠️ Consideración para producción:** El `PROCURA_PROJECT_ID = 1019` está hardcodeado para el ambiente de staging. Verificar el ID del proyecto en producción antes del pase y actualizar la constante en `models/project_task.py`.
-
-**Dependencias:** `project`  
-**Afecta:** `project.task` (solo proyecto PROCURA)  
-**Riesgo:** Bajo
+**Dependencies:** `project`
+**Affects:** `project.task` (scoped to one project)
+**Risk:** Low
 
 ---
 
-## Estructura del Repositorio
+## Repository Structure
 
 ```
-Desarrollo_Odoo/
+odoo17-custom-modules/
 ├── README.md
+├── analytic_account_close_lock/
+│   ├── __init__.py
+│   ├── __manifest__.py
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── account_analytic_account.py
+│   │   ├── account_analytic_line.py
+│   │   └── account_move_line.py
+│   ├── security/
+│   │   ├── analytic_close_security.xml
+│   │   └── ir.model.access.csv
+│   └── views/
+│       └── account_analytic_account_views.xml
 ├── proyelec_chatter_fix/
 │   ├── __init__.py
 │   ├── __manifest__.py
@@ -141,31 +157,29 @@ Desarrollo_Odoo/
 
 ---
 
-## Instalación en Nuevo Ambiente
+## Installation
 
-1. Copiar el módulo deseado a `/home/odoo/src/user/` en el servidor Odoo.sh
-2. Instalar:
+1. Copy the desired module to `/home/odoo/src/user/` on the Odoo.sh server
+2. Install:
 ```bash
-odoo-bin -d NOMBRE_DB -c /etc/odoo/odoo.conf -i nombre_modulo --stop-after-init
+odoo-bin -d <database> -c /etc/odoo/odoo.conf -i <module_name> --stop-after-init
 ```
-3. Para actualizar después de cambios:
+3. Update after changes:
 ```bash
-odoo-update nombre_modulo
+odoo-update <module_name>
 ```
 
 ---
 
-## Consideraciones para Pase a Producción
+## Development Principles
 
-- Coordinar con Contables Boyer para verificar que ningún módulo interfiera con sus desarrollos fiscales
-- Verificar IDs hardcodeados (especialmente `PROCURA_PROJECT_ID` en `proyelec_procura_kpi`)
-- Confirmar que los campos Studio referenciados (`x_studio_ganado`) existen en el ambiente de producción
-- Ejecutar instalación en horario de bajo tráfico
+- **Inheritance over rewriting** — All modules use `_inherit` to extend existing models
+- **Surgical changes** — Each module only modifies what is strictly necessary
+- **Odoo 17 patterns** — No deprecated parameters (`states`, `track_visibility`, `digits` on fields)
+- **Tested on Odoo.sh staging** before any production deployment
 
 ---
 
-## Equipo
+## Author
 
-**Desarrollador:** Juan Villasmil — AIT Proyelec  
-**Cliente:** Proyelec International C.A.  
-**Proveedor Odoo:** Contables Boyer (módulos fiscales venezolanos)
+Juan Villasmil — Odoo Developer
