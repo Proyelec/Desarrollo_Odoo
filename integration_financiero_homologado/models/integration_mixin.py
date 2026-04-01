@@ -2,7 +2,6 @@
 import xmlrpc.client
 import logging
 import time
-from urllib.parse import urlparse, urlunparse
 from odoo import models, fields, _, api
 from odoo.exceptions import UserError
 
@@ -41,28 +40,15 @@ class IntegrationMixin(models.AbstractModel):
         """
         url, db, username, password = self._get_homologado_credentials()
         try:
-            # Sanitizar la URL proporcionada en la configuración. Algunos usuarios
-            # pueden haber introducido '/web' o fragmentos en la URL, lo que rompe
-            # la construcción de los endpoints XML-RPC. Normalizamos para usar la
-            # base correcta.
-            parsed = urlparse(url)
-            # Eliminamos query y fragment
-            parsed = parsed._replace(query="", fragment="")
-            # Si la ruta contiene '/web' (p. ej. '/web#action=...'), la cortamos
-            path = parsed.path
-            if "/web" in path:
-                path = path.split("/web")[0]
-            # Reconstruimos la URL base sin slash final
-            base_url = urlunparse((parsed.scheme, parsed.netloc, path.rstrip('/'), '', '', ''))
-            base_url = base_url.rstrip('/')
+            # Ya no necesitamos la instancia de AllowNoneTransport
 
-            common_url = f"{base_url}/xmlrpc/2/common"
-            object_url = f"{base_url}/xmlrpc/2/object"
-
-            _logger.info("Usando base URL para XML-RPC: %s", base_url)
+            common_url = f"{url}/xmlrpc/2/common"
+            object_url = f"{url}/xmlrpc/2/object"
 
             # Pasamos 'allow_none=True' directamente al constructor
-            common = xmlrpc.client.ServerProxy(common_url, verbose=False, allow_none=True)
+            common = xmlrpc.client.ServerProxy(
+                common_url, verbose=False, allow_none=True  # <-- La clave
+            )
             uid = common.authenticate(db, username, password, {})
             if not uid:
                 raise UserError(
@@ -214,6 +200,45 @@ class IntegrationMixin(models.AbstractModel):
                     "Error consultando la Base de datos destino para el producto '%s'. Detalle: %s"
                 )
                 % (name, str(e))
+            )
+
+    def _get_fixed_remote_user_id(self, models_proxy, db, uid, password):
+        """
+        Obtiene el usuario remoto fijo por login.
+        Prioriza 'homologado.db.fixed_user_login' y, si no existe,
+        usa el usuario API configurado en 'homologado.db.user'.
+        """
+        config = self.env["ir.config_parameter"].sudo()
+        fixed_login = (config.get_param("homologado.db.fixed_user_login") or "").strip()
+
+        if not fixed_login:
+            fixed_login = (config.get_param("homologado.db.user") or "").strip()
+
+        if not fixed_login:
+            raise UserError(
+                _(
+                    "No hay un login de usuario fijo configurado para la integración. "
+                    "Defina 'homologado.db.fixed_user_login' o revise 'homologado.db.user'."
+                )
+            )
+
+        try:
+            return self._find_remote_id(
+                models_proxy,
+                db,
+                uid,
+                password,
+                "res.users",
+                "login",
+                fixed_login,
+            )
+        except UserError as e:
+            raise UserError(
+                _(
+                    "No se encontró el usuario fijo '%s' en la base de datos destino. "
+                    "Cree el usuario o ajuste la configuración.\nDetalle: %s"
+                )
+                % (fixed_login, str(e))
             )
 
     def _action_send_to_homologado_generic(

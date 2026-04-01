@@ -1,9 +1,6 @@
 # /integration_financiero_homologado/models/sale_order.py
 from odoo import models, fields, _
 from odoo.exceptions import UserError
-import logging
-
-_logger = logging.getLogger(__name__)
 
 class SaleOrder(models.Model):
     _name = 'sale.order'
@@ -29,31 +26,10 @@ class SaleOrder(models.Model):
             models_proxy, db, uid, password, self.partner_id
         )
 
-        # Usuario vendedor/comercial
-        try:
-            user_login = self.user_id.login if self.user_id else None
-            user_id_remoto = self._find_remote_id(
-                models_proxy, db, uid, password,
-                'res.users', 'login', user_login
-            )
-        except UserError as e:
-            # Si no existe el usuario vendedor en la BD destino, no abortamos
-            # automáticamente: usamos como fallback el usuario API (uid)
-            # que fue empleado para la autenticación remota.
-            _logger.warning(
-                "No se encontró el usuario remoto '%s', usando usuario API (uid=%s). Detalle: %s",
-                getattr(self.user_id, 'login', None), uid, str(e)
-            )
-            user_id_remoto = uid
-            # Mensaje en el chatter para dejar rastro en el pedido
-            try:
-                self.message_post(
-                    body=_(
-                        "Aviso: no se encontró el vendedor remoto '%s' en la BD destino; se usó el usuario API."
-                    ) % (getattr(self.user_id, 'login', '—'),)
-                )
-            except Exception:
-                pass
+        # Usuario fijo configurado para crear documentos en destino
+        user_id_remoto = self._get_fixed_remote_user_id(
+            models_proxy, db, uid, password
+        )
 
         order_lines = []
         for line in self.order_line.filtered(lambda l: not l.display_type):
@@ -62,40 +38,10 @@ class SaleOrder(models.Model):
                 models_proxy, db, uid, password, line.product_id
             )
 
-            # --- Impuestos: buscamos impuestos remotos por nombre ---
-            tax_remote_ids = []
-            try:
-                if line.tax_id:
-                    tax_names = line.tax_id.mapped('name')
-                    if tax_names:
-                        # Buscar por nombre en la BD destino
-                        tax_remote_ids = models_proxy.execute_kw(
-                            db,
-                            uid,
-                            password,
-                            'account.tax',
-                            'search',
-                            [[('name', 'in', tax_names)]],
-                        ) or []
-                        if not tax_remote_ids:
-                            _logger.warning(
-                                "No se encontraron impuestos remotos con nombres %s; se omiten impuestos para la línea.",
-                                tax_names,
-                            )
-            except Exception as e:
-                _logger.warning(
-                    "Error buscando impuestos remotos (%s). Se omiten impuestos para la línea. Detalle: %s",
-                    getattr(line, 'name', ''),
-                    e,
-                )
-
-            tax_val = [(6, 0, tax_remote_ids)] if tax_remote_ids else False
-
             order_lines.append((0, 0, {
                 'product_id': product_id_remoto,
                 'product_uom_qty': line.product_uom_qty,
-                'price_unit': line.price_unit_bs,
-                'tax_id': tax_val,
+                'price_unit': line.price_unit,
             }))
 
         return {

@@ -45,6 +45,7 @@ Aquí configuraremos los parámetros que el módulo usará para conectarse al Od
 | `homologado.db.name`      | `nombre_de_la_db_homologada`                                 | El nombre exacto de la base de datos de destino. Ejecuta: SELECT current_database();             |
 | `homologado.db.user`      | `api-user@tuempresa.com`                                     | El login del usuario que creaste en el Paso 1.                 |
 | `homologado.db.password`  | `la_clave_super_secreta_del_usuario_api`                     | La contraseña que definiste para el usuario API.               |
+| `homologado.db.fixed_user_login`  | `vendedor.destino@tuempresa.com`                    | (Opcional) Login del usuario fijo que quedará asignado en ventas/compras creadas por integración. Si no se define, se usa `homologado.db.user`. |
 
 
 
@@ -56,6 +57,6 @@ Para que la integración no falle, los datos clave deben existir en **ambas** ba
 
 * **Clientes/Proveedores:** Deben tener su **RIF/Cédula (`vat`)** correctamente configurado en ambas DBs.
 * **Productos:** Deben tener la misma **Referencia Interna (`default_code`)**.
-* **Usuarios (Vendedores/Compradores):** Deben tener el mismo **Login (email)**.
+* **Usuarios (Vendedores/Compradores):** Ya no es obligatorio que coincidan entre bases si configuras un usuario fijo en destino con `homologado.db.fixed_user_login`.
 
 Si un registro no se encuentra en la base de datos de destino, el proceso se detendrá y mostrará un error informativo.

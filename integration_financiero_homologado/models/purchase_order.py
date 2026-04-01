@@ -26,10 +26,9 @@ class PurchaseOrder(models.Model):
             models_proxy, db, uid, password, self.partner_id
         )
 
-        # En compras, el responsable es 'user_id' (Comprador)
-        user_id_remoto = self._find_remote_id(
-            models_proxy, db, uid, password,
-            'res.users', 'login', self.user_id.login
+        # Usuario fijo configurado para crear documentos en destino
+        user_id_remoto = self._get_fixed_remote_user_id(
+            models_proxy, db, uid, password
         )
 
         order_lines = []

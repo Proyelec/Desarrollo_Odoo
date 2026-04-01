@@ -44,6 +44,14 @@
                             </div>
                         </setting>
 
+                        <setting string="Usuario Fijo para Documentos">
+                            <field name="homologado_db_fixed_user_login"
+                                   placeholder="vendedor.destino@tuempresa.com"/>
+                            <div class="text-muted">
+                                Login del usuario remoto que se usará para crear ventas/compras en destino. Si no se define, se usará el Usuario API Homologado.
+                            </div>
+                        </setting>
+
                     </block>
                 </app>
 
