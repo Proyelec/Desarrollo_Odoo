@@ -2,6 +2,7 @@
 import xmlrpc.client
 import logging
 import time
+import json
 from odoo import models, fields, _, api
 from odoo.exceptions import UserError
 
@@ -394,6 +395,17 @@ class IntegrationMixin(models.AbstractModel):
                         )
 
                     self.write({"homologado_invoice_id": invoice_ids[0]})
+
+                    # ✅ NUEVA FUNCIONALIDAD: Replicar cuentas contables de la factura
+                    self._replicate_invoice_accounts(
+                        models_proxy,
+                        db,
+                        uid,
+                        password,
+                        invoice_ids[0],
+                        invoice_type="out_invoice",
+                    )
+
                     self.message_post(
                         body=_(
                             "✅ Factura borrador creada en la Base de datos destino. ID Factura: %s"
@@ -465,6 +477,17 @@ class IntegrationMixin(models.AbstractModel):
                         )
 
                     self.write({"homologado_invoice_id": created_invoice_ids[0]})
+
+                    # ✅ NUEVA FUNCIONALIDAD: Replicar cuentas contables de la factura
+                    self._replicate_invoice_accounts(
+                        models_proxy,
+                        db,
+                        uid,
+                        password,
+                        created_invoice_ids[0],
+                        invoice_type="in_invoice",
+                    )
+
                     self.message_post(
                         body=_(
                             "✅ Factura de proveedor borrador creada en la Base de datos destino. ID Factura: %s"
@@ -723,6 +746,60 @@ class IntegrationMixin(models.AbstractModel):
             db, uid, password, remote_model, "create", [vals]
         )
         _logger.info("Producto creado en destino: %s (%s)", name, new_id)
+        # --- Sincronizar impuestos del template del producto ---
+        try:
+            # Obtener template local y sus impuestos
+            local_tmpl = getattr(product, "product_tmpl_id", None) or product
+            sale_taxes = getattr(local_tmpl, "taxes_id", False)
+            purchase_taxes = getattr(local_tmpl, "supplier_taxes_id", False)
+
+            sale_remote_tax_ids = []
+            purchase_remote_tax_ids = []
+
+            if sale_taxes:
+                sale_remote_tax_ids = self._map_remote_taxes(
+                    models_proxy, db, uid, password, sale_taxes, usage="sale"
+                )
+
+            if purchase_taxes:
+                purchase_remote_tax_ids = self._map_remote_taxes(
+                    models_proxy, db, uid, password, purchase_taxes, usage="purchase"
+                )
+
+            # Obtener el product_tmpl_id creado en remoto
+            tmpl_info = models_proxy.execute_kw(
+                db, uid, password, "product.product", "read", [[new_id], ["product_tmpl_id"]]
+            )
+            tmpl_id = False
+            if tmpl_info and isinstance(tmpl_info, list) and tmpl_info[0].get("product_tmpl_id"):
+                # product_tmpl_id puede venir como [id, name]
+                pt = tmpl_info[0]["product_tmpl_id"]
+                tmpl_id = pt[0] if isinstance(pt, (list, tuple)) and pt else pt
+
+            if tmpl_id:
+                template_remote_fields = self._remote_fields(
+                    models_proxy, db, uid, password, "product.template"
+                )
+                write_vals = {}
+                if sale_remote_tax_ids and "taxes_id" in template_remote_fields:
+                    write_vals["taxes_id"] = [(6, 0, sale_remote_tax_ids)]
+                if purchase_remote_tax_ids and "supplier_taxes_id" in template_remote_fields:
+                    write_vals["supplier_taxes_id"] = [(6, 0, purchase_remote_tax_ids)]
+
+                if write_vals:
+                    try:
+                        models_proxy.execute_kw(
+                            db, uid, password, "product.template", "write", [[tmpl_id], write_vals]
+                        )
+                        _logger.info(
+                            "Impuestos del template sincronizados en destino (template_id=%s): %s",
+                            tmpl_id,
+                            write_vals,
+                        )
+                    except Exception as e:
+                        _logger.warning("No se pudo escribir impuestos en product.template remoto: %s", e)
+        except Exception as e:
+            _logger.warning("Error sincronizando impuestos de template para producto '%s': %s", name, e)
         return new_id
 
     def _get_or_create_remote_partner(self, models_proxy, db, uid, password, partner):
@@ -889,3 +966,581 @@ class IntegrationMixin(models.AbstractModel):
         )
         _logger.info("Partner creado en destino: %s (%s)", partner.name, new_id)
         return new_id
+
+    def _map_remote_taxes(self, models_proxy, db, uid, password, taxes, usage=None):
+        """
+        Mapea impuestos locales a IDs remotos intentando emparejar por:
+        1) `name` + `type_tax_use` (si `usage` es proporcionado: 'sale'|'purchase')
+        2) `name` solamente
+        3) `amount` como último recurso
+
+        Devuelve lista de IDs remotos (mantiene el orden y evita duplicados).
+        """
+        if not taxes:
+            return []
+
+        # Asegurar iterable de taxes (recordset o lista)
+        try:
+            iterable = list(taxes)
+        except Exception:
+            iterable = [taxes]
+
+        mapped = []
+        try:
+            for t in iterable:
+                # extraer propiedades del tax local
+                try:
+                    name = getattr(t, "name", None)
+                except Exception:
+                    name = None
+                try:
+                    amount = getattr(t, "amount", None)
+                except Exception:
+                    amount = None
+
+                found_id = False
+
+                # 1) Buscar por name + usage
+                if name:
+                    if usage:
+                        domain = [("name", "=", name), ("type_tax_use", "=", usage)]
+                        r = models_proxy.execute_kw(
+                            db, uid, password, "account.tax", "search", [domain], {"limit": 1}
+                        )
+                        if r:
+                            found_id = r[0]
+                    # 2) Buscar por name solo
+                    if not found_id:
+                        domain = [("name", "=", name)]
+                        r = models_proxy.execute_kw(
+                            db, uid, password, "account.tax", "search", [domain], {"limit": 1}
+                        )
+                        if r:
+                            found_id = r[0]
+
+                # 3) Fallback por amount
+                if not found_id and amount is not None:
+                    try:
+                        amt = float(amount)
+                        domain = [("amount", "=", amt)]
+                        if usage:
+                            domain_with_usage = domain + [("type_tax_use", "=", usage)]
+                            r = models_proxy.execute_kw(
+                                db, uid, password, "account.tax", "search", [domain_with_usage], {"limit": 1}
+                            )
+                            if r:
+                                found_id = r[0]
+                        if not found_id:
+                            r = models_proxy.execute_kw(
+                                db, uid, password, "account.tax", "search", [domain], {"limit": 1}
+                            )
+                            if r:
+                                found_id = r[0]
+                    except Exception:
+                        pass
+
+                if found_id and found_id not in mapped:
+                    mapped.append(found_id)
+        except Exception as e:
+            _logger.warning("Error mapeando impuestos remotos: %s", e)
+
+        return mapped
+
+    def _find_remote_account_by_code(self, models_proxy, db, uid, password, account_code):
+        """
+        Busca una cuenta contable remota por su código.
+        Devuelve el ID de la cuenta remota o False si no se encuentra.
+        """
+        if not account_code:
+            return False
+
+        try:
+            domain = [("code", "=", account_code)]
+            account_ids = models_proxy.execute_kw(
+                db, uid, password, "account.account", "search", [domain], {"limit": 1}
+            )
+            if account_ids:
+                return account_ids[0]
+        except Exception as e:
+            _logger.warning(
+                "Error buscando cuenta remota con código '%s': %s",
+                account_code,
+                str(e),
+            )
+
+        return False
+
+    def _find_remote_analytic_by_code(self, models_proxy, db, uid, password, analytic_code):
+        """
+        Busca una cuenta analítica remota por su código.
+        Devuelve el ID de la cuenta analítica remota o False si no se encuentra.
+        """
+        if not analytic_code:
+            return False
+
+        try:
+            domain = [("code", "=", analytic_code)]
+            analytic_ids = models_proxy.execute_kw(
+                db, uid, password, "account.analytic.account", "search", [domain], {"limit": 1}
+            )
+            if analytic_ids:
+                return analytic_ids[0]
+        except Exception as e:
+            _logger.warning(
+                "Error buscando cuenta analítica remota con código '%s': %s",
+                analytic_code,
+                str(e),
+            )
+
+        return False
+
+    def _find_remote_analytic_by_name(self, models_proxy, db, uid, password, analytic_name):
+        """
+        Busca una cuenta analítica remota por su nombre.
+        Devuelve el ID de la cuenta analítica remota o False si no se encuentra.
+        """
+        if not analytic_name:
+            return False
+
+        try:
+            domain = [("name", "=", analytic_name)]
+            analytic_ids = models_proxy.execute_kw(
+                db, uid, password, "account.analytic.account", "search", [domain], {"limit": 1}
+            )
+            if analytic_ids:
+                return analytic_ids[0]
+        except Exception as e:
+            _logger.warning(
+                "Error buscando cuenta analítica remota con nombre '%s': %s",
+                analytic_name,
+                str(e),
+            )
+
+        return False
+
+    def _get_or_create_remote_analytic(
+        self, models_proxy, db, uid, password, analytic_account
+    ):
+        """
+        Busca una cuenta analítica remota por código O nombre.
+        Si no existe, la CREA automáticamente en la BD destino.
+
+        ✅ OBJETIVO: Sincronizar cuentas analíticas faltantes automáticamente.
+        ✅ MEJORADO: Trabaja con o sin código (usa nombre como fallback).
+
+        Estrategia de búsqueda:
+        1. Si tiene código → Buscar por código
+        2. Si NO tiene código → Buscar por nombre
+        3. Si no existe → Crear con los datos disponibles
+
+        Args:
+            models_proxy: Proxy XML-RPC de la BD destino
+            db: Nombre de la BD destino
+            uid: ID del usuario autenticado en destino
+            password: Contraseña del usuario autenticado
+            analytic_account: Objeto account.analytic.account desde BD origen
+
+        Returns:
+            ID de la cuenta analítica remota, o False si no se puede crear
+        """
+        if not analytic_account:
+            return False
+
+        try:
+            code = analytic_account.code or ""
+            name = analytic_account.name or ""
+
+            if not code and not name:
+                _logger.warning(
+                    "Cuenta analítica (ID: %s) no tiene código ni nombre. No se puede sincronizar.",
+                    analytic_account.id,
+                )
+                return False
+
+            # --- PASO 1: Intentar buscar por CÓDIGO (si existe) ---
+            remote_analytic_id = False
+            search_by = "nombre"
+
+            if code:
+                remote_analytic_id = self._find_remote_analytic_by_code(
+                    models_proxy, db, uid, password, code
+                )
+                search_by = "código"
+
+                if remote_analytic_id:
+                    _logger.info(
+                        "Cuenta analítica remota encontrada por código: %s (Código: %s, ID: %s)",
+                        name,
+                        code,
+                        remote_analytic_id,
+                    )
+                    return remote_analytic_id
+
+            # --- PASO 2: Si no encontró por código, intentar por NOMBRE ---
+            if not remote_analytic_id and name:
+                remote_analytic_id = self._find_remote_analytic_by_name(
+                    models_proxy, db, uid, password, name
+                )
+
+                if remote_analytic_id:
+                    _logger.info(
+                        "Cuenta analítica remota encontrada por nombre: %s (Nombre: %s, ID: %s)",
+                        name,
+                        name,
+                        remote_analytic_id,
+                    )
+                    return remote_analytic_id
+
+            # --- PASO 3: Si no existe, CREAR en destino ---
+            _logger.warning(
+                "Cuenta analítica '%s' (Código: %s) no encontrada en destino por %s. Creando...",
+                name,
+                code if code else "SIN CÓDIGO",
+                search_by,
+            )
+
+            vals = {
+                "name": name,
+                "active": True,
+            }
+
+            # Agregar código solo si existe
+            if code:
+                vals["code"] = code
+
+            # Obtener campos remotos disponibles para filtrar
+            remote_fields = self._remote_fields(
+                models_proxy, db, uid, password, "account.analytic.account"
+            )
+            vals = self._filter_remote_vals(vals, remote_fields)
+
+            # Crear la cuenta analítica remota
+            new_id = models_proxy.execute_kw(
+                db,
+                uid,
+                password,
+                "account.analytic.account",
+                "create",
+                [vals],
+            )
+
+            _logger.info(
+                "✅ Cuenta analítica creada en destino: %s (Código: %s, ID Remoto: %s)",
+                name,
+                code if code else "SIN CÓDIGO",
+                new_id,
+            )
+            return new_id
+
+        except Exception as e:
+            _logger.error(
+                "Error creando/buscando cuenta analítica remota para '%s': %s",
+                analytic_account.name if analytic_account else "Unknown",
+                str(e),
+            )
+            return False
+
+    def _process_analytic_distribution(
+        self, models_proxy, db, uid, password, origin_line
+    ):
+        """
+        Procesa la distribución analítica de una línea de factura origen.
+
+        Convierte el campo `analytic_distribution` (origen) al mismo campo
+        `analytic_distribution` (destino) en formato dict con IDs remotos.
+
+        ✅ MEJORADO: Ahora preserva porcentajes y mapea IDs correctamente.
+
+        Formato:
+        ├─ Origen: {"1": 50.0, "2": 50.0}  (ID origen: porcentaje)
+        └─ Destino: {"45": 50.0, "46": 50.0}  (ID remoto: porcentaje)
+
+        Args:
+            models_proxy: Proxy XML-RPC de la BD destino
+            db: Nombre de la BD destino
+            uid: ID del usuario autenticado en destino
+            password: Contraseña del usuario autenticado
+            origin_line: Línea de factura desde la BD origen
+
+        Returns:
+            Dict con formato {"id_remoto": porcentaje} o {} si vacío
+        """
+        try:
+            # Obtener el campo analytic_distribution de origen
+            analytic_dist = getattr(origin_line, "analytic_distribution", {})
+
+            if not analytic_dist:
+                _logger.debug(
+                    "Línea %s no tiene distribución analítica definida.",
+                    origin_line.id,
+                )
+                return {}
+
+            # analytic_distribution puede ser un dict como: {"1": 50.0, "2": 50.0}
+            # o un JSON string que debemos parsear
+            if isinstance(analytic_dist, str):
+                try:
+                    analytic_dist = json.loads(analytic_dist)
+                except (json.JSONDecodeError, TypeError):
+                    _logger.warning(
+                        "No se pudo parsear analytic_distribution como JSON: %s",
+                        analytic_dist,
+                    )
+                    return {}
+
+            if not isinstance(analytic_dist, dict):
+                _logger.warning(
+                    "analytic_distribution no es un diccionario válido: %s",
+                    analytic_dist,
+                )
+                return {}
+
+            # Procesar cada entrada: account_id -> percentage
+            # Devolvemos un dict con IDs remotos mapeados
+            distribution_dict = {}
+
+            for analytic_account_id_local, percentage in analytic_dist.items():
+                # analytic_account_id_local es el ID de la cuenta analítica en origen
+                # Buscamos la cuenta analítica local para obtener su código/nombre
+                try:
+                    analytic_account_local = self.env["account.analytic.account"].browse(
+                        int(analytic_account_id_local)
+                    )
+
+                    if not analytic_account_local or not analytic_account_local.exists():
+                        _logger.warning(
+                            "Cuenta analítica origen ID %s no encontrada o no existe.",
+                            analytic_account_id_local,
+                        )
+                        continue
+
+                    analytic_code = analytic_account_local.code
+                    analytic_name = analytic_account_local.name
+
+                    # ✅ MEJORADO: Buscar OR CREAR la cuenta analítica remota
+                    # Ahora funciona con o sin código (usa nombre como fallback)
+                    remote_analytic_id = self._get_or_create_remote_analytic(
+                        models_proxy, db, uid, password, analytic_account_local
+                    )
+
+                    if remote_analytic_id:
+                        # ✅ IMPORTANTE: Agregar al dict con ID remoto como KEY y porcentaje como VALUE
+                        distribution_dict[str(remote_analytic_id)] = percentage
+                        _logger.info(
+                            "Cuenta analítica mapeada/creada: %s (Código: %s, Porcentaje: %s%%, ID Origen: %s → ID Remoto: %s)",
+                            analytic_name,
+                            analytic_code if analytic_code else "SIN CÓDIGO",
+                            percentage,
+                            analytic_account_id_local,
+                            remote_analytic_id,
+                        )
+                    else:
+                        _logger.warning(
+                            "No se pudo obtener/crear cuenta analítica remota para '%s' (origen ID: %s)",
+                            analytic_name,
+                            analytic_account_id_local,
+                        )
+
+                except (ValueError, TypeError) as e:
+                    _logger.error(
+                        "Error procesando analytic_account_id '%s': %s",
+                        analytic_account_id_local,
+                        str(e),
+                    )
+                    continue
+
+            # Retornar dict con IDs remotos mapeados
+            _logger.info(
+                "Distribución analítica procesada: %s",
+                distribution_dict,
+            )
+            return distribution_dict
+
+        except Exception as e:
+            _logger.error(
+                "Error procesando distribución analítica para línea ID %s: %s",
+                origin_line.id,
+                str(e),
+            )
+            return {}
+
+    def _replicate_invoice_accounts(
+        self, models_proxy, db, uid, password, remote_invoice_id, invoice_type="out_invoice"
+    ):
+        """
+        Replica los account_id de las líneas de la factura original hacia la factura destino.
+
+        ✅ OBJETIVO: Mantener las mismas cuentas contables en ambas bases de datos.
+
+        Proceso:
+        1. Obtener la factura original del local (por invoice_origin = self.name)
+        2. Si existe, extraer los account_id de sus líneas
+        3. Buscar cada cuenta remota equivalente (por código)
+        4. Actualizar las líneas de la factura destino con los account_id remotos correctos
+
+        Args:
+            models_proxy: Proxy XML-RPC de la BD destino
+            db: Nombre de la BD destino
+            uid: ID del usuario autenticado en destino
+            password: Contraseña del usuario autenticado
+            remote_invoice_id: ID de la factura creada en destino
+            invoice_type: Tipo de factura ('out_invoice' o 'in_invoice')
+
+        Returns:
+            True si se replicaron exitosamente, False si no hay factura origen
+        """
+        try:
+            # --- PASO 1: Obtener la factura ORIGEN ---
+            # Buscamos en el origen por invoice_origin = nombre del pedido actual
+            origin_invoices = self.env["account.move"].search(
+                [
+                    ("invoice_origin", "=", self.name),
+                    ("move_type", "in", ["out_invoice", "in_invoice", "out_refund", "in_refund"]),
+                ],
+                limit=1,
+            )
+
+            if not origin_invoices:
+                _logger.info(
+                    "No se encontró factura original para el pedido '%s'. Saltando replicación de cuentas.",
+                    self.name,
+                )
+                return False
+
+            origin_invoice = origin_invoices[0]
+            _logger.info(
+                "Factura origen encontrada (ID: %s, Tipo: %s)",
+                origin_invoice.id,
+                origin_invoice.move_type,
+            )
+
+            # --- PASO 2: Extraer account_id de las líneas ORIGEN ---
+            # Obtenemos solo las líneas contables (no de sección/comentario)
+            origin_lines = origin_invoice.line_ids.filtered(
+                lambda l: l.account_id is not False and l.account_id
+            )
+
+            if not origin_lines:
+                _logger.warning(
+                    "La factura origen (ID: %s) no tiene líneas contables válidas.",
+                    origin_invoice.id,
+                )
+                return False
+
+            _logger.info(
+                "Se encontraron %d líneas contables en la factura origen.",
+                len(origin_lines),
+            )
+
+            # --- PASO 3: Obtener líneas de la factura DESTINO ---
+            # Las líneas destino se buscan usando el proxy de destino
+            remote_lines = models_proxy.execute_kw(
+                db,
+                uid,
+                password,
+                "account.move.line",
+                "search",
+                [
+                    [
+                        ("move_id", "=", remote_invoice_id),
+                        ("account_id", "!=", False),
+                    ]
+                ],
+                {"order": "sequence,id"},  # Orden consistente
+            )
+
+            if not remote_lines:
+                _logger.warning(
+                    "La factura destino (ID: %s) no tiene líneas contables.",
+                    remote_invoice_id,
+                )
+                return False
+
+            _logger.info(
+                "Se encontraron %d líneas contables en la factura destino.",
+                len(remote_lines),
+            )
+
+            # --- PASO 4: Mapear y actualizar cuentas ---
+            # Las líneas se deben corresponder en orden (1:1 por índice)
+            updates_performed = 0
+
+            for idx, (origin_line, remote_line_id) in enumerate(
+                zip(origin_lines, remote_lines)
+            ):
+                if origin_line.account_id:
+                    account_code = origin_line.account_id.code
+                    account_name = origin_line.account_id.name
+
+                    # Buscar la cuenta remota equivalente por código
+                    remote_account_id = self._find_remote_account_by_code(
+                        models_proxy, db, uid, password, account_code
+                    )
+
+                    if remote_account_id:
+                        # Preparar valores a actualizar
+                        update_vals = {"account_id": remote_account_id}
+
+                        # ✅ NUEVA FUNCIONALIDAD: Procesar distribución analítica
+                        analytic_distribution = self._process_analytic_distribution(
+                            models_proxy, db, uid, password, origin_line
+                        )
+                        if analytic_distribution:
+                            # ✅ CORRECCIÓN: El campo en destino también es 'analytic_distribution'
+                            # Formato: {"id_remoto": porcentaje, ...}
+                            update_vals["analytic_distribution"] = (
+                                analytic_distribution
+                            )
+                            _logger.info(
+                                "Línea %d: Distribución analítica procesada: %s",
+                                idx + 1,
+                                analytic_distribution,
+                            )
+
+                        # Actualizar la línea remota con la cuenta correcta + distribución
+                        try:
+                            models_proxy.execute_kw(
+                                db,
+                                uid,
+                                password,
+                                "account.move.line",
+                                "write",
+                                [[remote_line_id], update_vals],
+                            )
+                            _logger.info(
+                                "Línea %d: Cuenta actualizada (Código: %s, Nombre: %s, ID Remoto: %s)",
+                                idx + 1,
+                                account_code,
+                                account_name,
+                                remote_account_id,
+                            )
+                            updates_performed += 1
+                        except Exception as e:
+                            _logger.error(
+                                "Error actualizando account_id/distribución en línea remota %s: %s",
+                                remote_line_id,
+                                str(e),
+                            )
+                            # No detenemos el proceso por una línea fallida; continuamos
+                    else:
+                        _logger.warning(
+                            "No se encontró cuenta remota equivalente para el código '%s' (Línea origen ID: %s)",
+                            account_code,
+                            origin_line.id,
+                        )
+
+            _logger.info(
+                "Replicación de cuentas completada: %d de %d líneas actualizadas.",
+                updates_performed,
+                len(remote_lines),
+            )
+            return True
+
+        except Exception as e:
+            _logger.error(
+                "Error durante la replicación de cuentas contables para la factura remota ID %s: %s",
+                remote_invoice_id,
+                str(e),
+            )
+            # No lanzamos excepción para no interrumpir el flujo general
+            return False

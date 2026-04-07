@@ -1,6 +1,9 @@
 # /integration_financiero_homologado/models/purchase_order.py
+import logging
 from odoo import models, fields, _
 from odoo.exceptions import UserError
+
+_logger = logging.getLogger(__name__)
 
 class PurchaseOrder(models.Model):
     _name = 'purchase.order'
@@ -31,6 +34,11 @@ class PurchaseOrder(models.Model):
             models_proxy, db, uid, password
         )
 
+        # Obtener campos remotos del modelo de línea para filtrar vals no soportados
+        line_remote_fields = self._remote_fields(
+            models_proxy, db, uid, password, 'purchase.order.line'
+        )
+
         order_lines = []
         for line in self.order_line:
             # ✅ AHORA: busca y si no existe, crea producto remoto
@@ -38,13 +46,44 @@ class PurchaseOrder(models.Model):
                 models_proxy, db, uid, password, line.product_id
             )
 
-            order_lines.append((0, 0, {
+            # ✅ NUEVA FUNCIONALIDAD: Convertir moneda USD a Bs si es necesario
+            # Si currency_id es USD, usar price_unit_bs; si no, usar price_unit normal
+            if self.currency_id.name == 'USD':
+                price_to_send = line.price_unit_bs  # Usar precio en bolívares si moneda es USD
+            else:
+                price_to_send = line.price_unit  # Usar precio normal si no es USD
+
+            line_vals = {
                 'product_id': product_id_remoto,
                 'name': line.name,
                 'product_qty': line.product_qty,
-                'price_unit': line.price_unit,
+                'price_unit': price_to_send,
                 'date_planned': line.date_planned.strftime('%Y-%m-%d %H:%M:%S') if line.date_planned else False,
-            }))
+            }
+
+            # Mapear impuestos de la línea hacia IDs remotos (específico para compras)
+            try:
+                taxes = getattr(line, 'taxes_id', False)
+                remote_tax_ids = []
+                if taxes:
+                    remote_tax_ids = self._map_remote_taxes(
+                        models_proxy, db, uid, password, taxes, usage='purchase'
+                    )
+
+                if remote_tax_ids:
+                    if 'taxes_id' in line_remote_fields:
+                        line_vals['taxes_id'] = [(6, 0, remote_tax_ids)]
+                    else:
+                        _logger.warning(
+                            "El modelo remoto de línea de compra no expone 'taxes_id'; impuestos no enviados"
+                        )
+            except Exception as e:
+                # No detener el proceso por un fallo de mapeo de impuestos; avisar en logs
+                _logger.warning('No se pudo mapear impuestos de la línea: %s', e)
+
+            clean_line_vals = self._filter_remote_vals(line_vals, line_remote_fields)
+
+            order_lines.append((0, 0, clean_line_vals))
 
         return {
             'partner_id': partner_id_remoto,
