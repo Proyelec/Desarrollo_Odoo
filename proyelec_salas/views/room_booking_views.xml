@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_room_booking_form_inherit" model="ir.ui.view">
+        <field name="name">room.booking.form.proyelec</field>
+        <field name="model">room.booking</field>
+        <field name="inherit_id" ref="room.room_booking_view_form"/>
+        <field name="arch" type="xml">
+
+            <xpath expr="//sheet" position="before">
+                <field name="can_see_details" invisible="1"/>
+            </xpath>
+
+            <xpath expr="//field[@name='organizer_id']" position="after">
+                <field name="is_private" widget="boolean_toggle"/>
+            </xpath>
+
+            <!-- Sin invisible — siempre visibles -->
+            <xpath expr="//sheet//group[1]" position="after">
+                <group string="Asistentes y Agenda" colspan="2">
+                    <field name="attendee_ids"
+                           widget="many2many_tags"
+                           options="{'no_create': True}"
+                           nolabel="1" colspan="2"
+                           placeholder="Agregar asistentes..."/>
+                    <field name="description"
+                           nolabel="1" colspan="2"
+                           placeholder="Agenda o descripción de la reunión (opcional)..."/>
+                </group>
+            </xpath>
+
+        </field>
+    </record>
+
+    <record id="view_room_booking_calendar_inherit" model="ir.ui.view">
+        <field name="name">room.booking.calendar.proyelec</field>
+        <field name="model">room.booking</field>
+        <field name="inherit_id" ref="room.room_booking_view_calendar"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='room_id']" position="after">
+                <field name="is_private" invisible="1"/>
+                <field name="can_see_details" invisible="1"/>
+                <field name="attendee_ids" invisible="1"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_room_booking_gantt_inherit" model="ir.ui.view">
+        <field name="name">room.booking.gantt.proyelec</field>
+        <field name="model">room.booking</field>
+        <field name="inherit_id" ref="room.room_booking_view_gantt"/>
+        <field name="arch" type="xml">
+            <xpath expr="//gantt" position="inside">
+                <field name="is_private"/>
+                <field name="can_see_details"/>
+                <field name="attendee_ids"/>
+            </xpath>
+            <xpath expr="//div[@t-name='gantt-popover']" position="replace">
+                <div t-name="gantt-popover">
+                    <div class="o_gantt_popover">
+                        <ul class="ps-1 mb-0 list-unstyled">
+                            <li>
+                                <strong><t t-out="__display_name"/></strong>
+                            </li>
+                            <li t-if="can_see_details">
+                                <strong>Organizador: </strong>
+                                <t t-out="organizer_id[1]"/>
+                            </li>
+                            <li class="o_gantt_popover_content_item mt-2">
+                                <t t-out="start_datetime.toFormat('f ')"/>
+                                <i class="fa fa-long-arrow-right" title="Hasta"/>
+                                <t t-out="stop_datetime.toFormat(' f')"/>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_room_booking_kanban_inherit" model="ir.ui.view">
+        <field name="name">room.booking.kanban.proyelec</field>
+        <field name="model">room.booking</field>
+        <field name="inherit_id" ref="room.room_booking_view_kanban"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='display_name']" position="replace">
+                <field name="can_see_details"/>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

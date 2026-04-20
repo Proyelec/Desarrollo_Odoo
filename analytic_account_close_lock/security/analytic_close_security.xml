@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="group_analytic_close_manager" model="res.groups">
+        <field name="name">Analytic Close Manager</field>
+        <field name="category_id" ref="base.module_category_accounting_accounting"/>
+        <field name="comment">
+            Los usuarios de este grupo pueden cerrar y reabrir cuentas analíticas
+            para bloquear o habilitar nuevas imputaciones sobre ellas.
+        </field>
+    </record>
+</odoo>
