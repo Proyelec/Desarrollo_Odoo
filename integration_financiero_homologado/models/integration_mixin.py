@@ -1,6 +1,7 @@
 # /integration_financiero_homologado/models/integration_mixin.py
 import xmlrpc.client
 import logging
+import re
 import time
 import json
 from odoo import models, fields, _, api
@@ -16,6 +17,31 @@ class IntegrationMixin(models.AbstractModel):
     homologado_id = fields.Integer(
         string="ID Destino", readonly=True, copy=False, index=True
     )
+
+    def _build_remote_error_message(self, action_label, error):
+        """Convierte fallos XML-RPC remotos en mensajes accionables para usuario."""
+        error_text = str(error)
+        undefined_column_match = re.search(
+            r'column "(?P<column>[^"]+)" of relation "(?P<relation>[^"]+)" does not exist',
+            error_text,
+        )
+
+        if undefined_column_match:
+            column_name = undefined_column_match.group("column")
+            relation_name = undefined_column_match.group("relation")
+            return _(
+                "No se pudo %s porque la BD homologada tiene un desfase de esquema en la tabla '%s': falta la columna '%s'. "
+                "Esto no depende de los valores enviados por esta integración; el servidor remoto está intentando usar un campo definido en código pero no creado en PostgreSQL. "
+                "Actualice el módulo personalizado correspondiente en la BD destino y reinicie Odoo antes de reintentar."
+            ) % (action_label, relation_name, column_name)
+
+        if isinstance(error, xmlrpc.client.Fault):
+            return _("No se pudo %s en la BD homologada: %s") % (
+                action_label,
+                error.faultString,
+            )
+
+        return _("No se pudo %s en la BD homologada: %s") % (action_label, error_text)
 
     def _get_homologado_credentials(self):
         """Obtiene las credenciales de los parámetros del sistema de forma segura."""
@@ -265,9 +291,16 @@ class IntegrationMixin(models.AbstractModel):
         _logger.info(
             "Creando documento remoto en '%s' con valores: %s", remote_model, vals
         )
-        new_remote_id = models_proxy.execute_kw(
-            db, uid, password, remote_model, "create", [vals]
-        )
+        try:
+            new_remote_id = models_proxy.execute_kw(
+                db, uid, password, remote_model, "create", [vals]
+            )
+        except Exception as e:
+            msg = self._build_remote_error_message(
+                _("crear el documento remoto"), e
+            )
+            self.message_post(body=msg)
+            raise UserError(msg)
 
         # Obtener el nombre real del documento remoto
         remote_data = models_proxy.execute_kw(
@@ -282,6 +315,16 @@ class IntegrationMixin(models.AbstractModel):
                 f"✅ Documento enviado con éxito. ID Destino: {new_remote_id} ({remote_name})"
             )
         )
+        
+        # --- HOOK: Post-Creación ---
+        # Se ejecuta después de crear el documento remoto, pero ANTES de confirmarlo.
+        # Permite al modelo hijo forzar valores (como precios) que Odoo haya recalculado automáticamente.
+        if hasattr(self, '_post_create_remote_hook'):
+            try:
+                self._post_create_remote_hook(models_proxy, db, uid, password, new_remote_id)
+            except Exception as hook_err:
+                _logger.error(f"Error ejecutando Hook Post-Creación: {hook_err}")
+                self.message_post(body=f"⚠️ Advertencia: Ocurrió un error forzando valores tras la creación: {hook_err}")
 
         # --- PASO 2: Confirmar el documento ---
         if confirm_method:
@@ -298,9 +341,9 @@ class IntegrationMixin(models.AbstractModel):
                     body=_("✅ Documento confirmado en la base de datos destino.")
                 )
             except Exception as e:
-                msg = _(
-                    "Falló la confirmación automática del documento remoto: %s"
-                ) % str(e)
+                msg = self._build_remote_error_message(
+                    _("confirmar el documento remoto"), e
+                )
                 self.message_post(body=msg)
                 raise UserError(msg)
 
@@ -496,9 +539,9 @@ class IntegrationMixin(models.AbstractModel):
                     )
 
             except Exception as e:
-                msg = _(
-                    "Falló la creación automática de la factura borrador remota: %s"
-                ) % str(e)
+                msg = self._build_remote_error_message(
+                    _("crear la factura borrador remota"), e
+                )
                 self.message_post(body=msg)
                 raise UserError(msg)
 
@@ -622,7 +665,7 @@ class IntegrationMixin(models.AbstractModel):
                 % (uom.name, str(e))
             )
 
-    def _get_or_create_remote_product(self, models_proxy, db, uid, password, product):
+    def _get_or_create_remote_product(self, models_proxy, db, uid, password, product, line_uom=None):
         """
         Busca producto remoto por default_code o barcode (o name).
         Si no existe, lo crea con campos permitidos.
@@ -718,9 +761,15 @@ class IntegrationMixin(models.AbstractModel):
         tag_remote_ids = find_remote_ids("product.tag", "name", tag_names)
 
         # UoM (M2O) por nombre (usando helper que crea si no existe)
-        uom_remote_id = self._get_or_create_remote_uom(
-            models_proxy, db, uid, password, product.uom_id
-        )
+        # Si la llamada proviene de una línea de pedido y se pasó `line_uom`,
+        # usamos esa UoM para el template/producto; en caso contrario usamos
+        # la UoM definida en el producto.
+        uom_source = line_uom or product.uom_id
+        uom_remote_id = False
+        if uom_source:
+            uom_remote_id = self._get_or_create_remote_uom(
+                models_proxy, db, uid, password, uom_source
+            )
         uom_po_remote_id = self._get_or_create_remote_uom(
             models_proxy, db, uid, password, product.uom_po_id
         )
@@ -786,18 +835,25 @@ class IntegrationMixin(models.AbstractModel):
                 if purchase_remote_tax_ids and "supplier_taxes_id" in template_remote_fields:
                     write_vals["supplier_taxes_id"] = [(6, 0, purchase_remote_tax_ids)]
 
+                # Si se creó con una UoM derivada de la línea, forzamos la UoM
+                # en el template remoto cuando el campo exista.
+                if uom_remote_id and "uom_id" in template_remote_fields:
+                    write_vals["uom_id"] = uom_remote_id
+                if uom_po_remote_id and "uom_po_id" in template_remote_fields:
+                    write_vals["uom_po_id"] = uom_po_remote_id
+
                 if write_vals:
                     try:
                         models_proxy.execute_kw(
                             db, uid, password, "product.template", "write", [[tmpl_id], write_vals]
                         )
                         _logger.info(
-                            "Impuestos del template sincronizados en destino (template_id=%s): %s",
+                            "Valores del template sincronizados en destino (template_id=%s): %s",
                             tmpl_id,
                             write_vals,
                         )
                     except Exception as e:
-                        _logger.warning("No se pudo escribir impuestos en product.template remoto: %s", e)
+                        _logger.warning("No se pudo escribir campos en product.template remoto: %s", e)
         except Exception as e:
             _logger.warning("Error sincronizando impuestos de template para producto '%s': %s", name, e)
         return new_id
@@ -1249,7 +1305,7 @@ class IntegrationMixin(models.AbstractModel):
         Convierte el campo `analytic_distribution` (origen) al mismo campo
         `analytic_distribution` (destino) en formato dict con IDs remotos.
 
-        ✅ MEJORADO: Ahora preserva porcentajes y mapea IDs correctamente.
+        ✅ LANZA ERROR: Si una analítica NO existe en destino
 
         Formato:
         ├─ Origen: {"1": 50.0, "2": 50.0}  (ID origen: porcentaje)
@@ -1264,6 +1320,9 @@ class IntegrationMixin(models.AbstractModel):
 
         Returns:
             Dict con formato {"id_remoto": porcentaje} o {} si vacío
+            
+        Raises:
+            UserError: Si una analítica de la distribución no existe en destino
         """
         try:
             # Obtener el campo analytic_distribution de origen
@@ -1298,6 +1357,7 @@ class IntegrationMixin(models.AbstractModel):
             # Procesar cada entrada: account_id -> percentage
             # Devolvemos un dict con IDs remotos mapeados
             distribution_dict = {}
+            missing_analytics = []
 
             for analytic_account_id_local, percentage in analytic_dist.items():
                 # analytic_account_id_local es el ID de la cuenta analítica en origen
@@ -1312,22 +1372,34 @@ class IntegrationMixin(models.AbstractModel):
                             "Cuenta analítica origen ID %s no encontrada o no existe.",
                             analytic_account_id_local,
                         )
+                        missing_analytics.append(
+                            f"ID Local: {analytic_account_id_local} - Cuenta analítica no encontrada en BD origen"
+                        )
                         continue
 
                     analytic_code = analytic_account_local.code
                     analytic_name = analytic_account_local.name
 
-                    # ✅ MEJORADO: Buscar OR CREAR la cuenta analítica remota
-                    # Ahora funciona con o sin código (usa nombre como fallback)
-                    remote_analytic_id = self._get_or_create_remote_analytic(
-                        models_proxy, db, uid, password, analytic_account_local
-                    )
+                    # Buscar la cuenta analítica remota (SIN CREAR automáticamente)
+                    remote_analytic_id = False
+                    
+                    # Intentar por código primero
+                    if analytic_code:
+                        remote_analytic_id = self._find_remote_analytic_by_code(
+                            models_proxy, db, uid, password, analytic_code
+                        )
+
+                    # Si no encontró por código, intentar por nombre
+                    if not remote_analytic_id and analytic_name:
+                        remote_analytic_id = self._find_remote_analytic_by_name(
+                            models_proxy, db, uid, password, analytic_name
+                        )
 
                     if remote_analytic_id:
                         # ✅ IMPORTANTE: Agregar al dict con ID remoto como KEY y porcentaje como VALUE
                         distribution_dict[str(remote_analytic_id)] = percentage
                         _logger.info(
-                            "Cuenta analítica mapeada/creada: %s (Código: %s, Porcentaje: %s%%, ID Origen: %s → ID Remoto: %s)",
+                            "✅ Cuenta analítica encontrada: %s (Código: %s, Porcentaje: %s%%, ID Origen: %s → ID Remoto: %s)",
                             analytic_name,
                             analytic_code if analytic_code else "SIN CÓDIGO",
                             percentage,
@@ -1335,11 +1407,16 @@ class IntegrationMixin(models.AbstractModel):
                             remote_analytic_id,
                         )
                     else:
-                        _logger.warning(
-                            "No se pudo obtener/crear cuenta analítica remota para '%s' (origen ID: %s)",
-                            analytic_name,
-                            analytic_account_id_local,
+                        # ❌ Analítica NO encontrada en destino
+                        error_detail = (
+                            f"Código: {analytic_code if analytic_code else 'SIN CÓDIGO'} - "
+                            f"Analítica: '{analytic_name}' (Porcentaje: {percentage}%)"
                         )
+                        _logger.error(
+                            "❌ Cuenta analítica NO encontrada en BD destino: %s",
+                            error_detail,
+                        )
+                        missing_analytics.append(error_detail)
 
                 except (ValueError, TypeError) as e:
                     _logger.error(
@@ -1347,22 +1424,377 @@ class IntegrationMixin(models.AbstractModel):
                         analytic_account_id_local,
                         str(e),
                     )
-                    continue
+                    missing_analytics.append(
+                        f"ID Local: {analytic_account_id_local} - Error al procesar (ver logs)"
+                    )
+
+            # ❌ LANZAR ERROR si hay analíticas faltantes
+            if missing_analytics:
+                error_message = (
+                    "🚫 **ERROR DE SINCRONIZACIÓN: Cuentas Analíticas NO encontradas en BD destino**\n\n"
+                    "No se puede sincronizar esta factura porque las siguientes cuentas analíticas\n"
+                    "NO existen en la base de datos destino:\n\n"
+                )
+                for analytic in missing_analytics:
+                    error_message += f"  • {analytic}\n"
+                error_message += (
+                    "\n**ACCIÓN REQUERIDA:**\n"
+                    "Por favor, registre estas cuentas analíticas en la BD destino antes de sincronizar.\n"
+                    "Luego reintente enviar el pedido."
+                )
+                _logger.error("❌ Error en distribución analítica: %s", error_message)
+                raise UserError(_(error_message))
 
             # Retornar dict con IDs remotos mapeados
             _logger.info(
-                "Distribución analítica procesada: %s",
+                "✅ Distribución analítica procesada correctamente: %s",
                 distribution_dict,
             )
             return distribution_dict
 
+        except UserError:
+            # Relanzar UserError sin capturarlo
+            raise
         except Exception as e:
             _logger.error(
                 "Error procesando distribución analítica para línea ID %s: %s",
                 origin_line.id,
                 str(e),
             )
-            return {}
+            raise UserError(
+                _(f"Error al procesar distribución analítica: {str(e)}")
+            )
+
+    def _validate_invoice_analytics_before_send(self):
+        """
+        Valida que TODAS las cuentas analíticas de la factura origen
+        existan en la base de datos destino ANTES de enviar el pedido.
+
+        ✅ OBJETIVO: Bloquear el envío si falta una analítica en destino.
+        Esta validación se ejecuta ANTES de crear el pedido en destino.
+
+        Lanza UserError si:
+        - Una cuenta analítica en la factura NO existe en destino
+
+        """
+        self.ensure_one()
+
+        try:
+            models_proxy, db, uid, password = self._get_remote_models_proxy()
+        except UserError:
+            # Si no puede conectar a destino, relanzar el error
+            raise
+
+        # Obtener la factura origen asociada al pedido
+        origin_invoices = self.env["account.move"].search(
+            [
+                ("invoice_origin", "=", self.name),
+                ("move_type", "in", ["out_invoice", "in_invoice", "out_refund", "in_refund"]),
+            ],
+            limit=1,
+        )
+
+        if not origin_invoices:
+            _logger.info(
+                "No se encontró factura original para el pedido '%s'. Validación de analíticas omitida.",
+                self.name,
+            )
+            return True
+
+        origin_invoice = origin_invoices[0]
+
+        # Obtener líneas contables de la factura
+        origin_lines = origin_invoice.line_ids.filtered(
+            lambda l: l.account_id is not False and l.account_id
+        )
+
+        if not origin_lines:
+            _logger.info(
+                "La factura origen (ID: %s) no tiene líneas contables. Validación omitida.",
+                origin_invoice.id,
+            )
+            return True
+
+        _logger.info(
+            "🔍 Validando analíticas de la factura origen (ID: %s) - %d líneas",
+            origin_invoice.id,
+            len(origin_lines),
+        )
+
+        missing_analytics = []
+
+        # Validar cada línea de la factura
+        for line_idx, origin_line in enumerate(origin_lines, 1):
+            analytic_dist = getattr(origin_line, "analytic_distribution", {})
+
+            if not analytic_dist:
+                _logger.debug("Línea %d: Sin distribución analítica", line_idx)
+                continue
+
+            # Parsear si es JSON string
+            if isinstance(analytic_dist, str):
+                try:
+                    analytic_dist = json.loads(analytic_dist)
+                except (json.JSONDecodeError, TypeError):
+                    _logger.warning(
+                        "Línea %d: No se pudo parsear analytic_distribution como JSON: %s",
+                        line_idx,
+                        analytic_dist,
+                    )
+                    continue
+
+            if not isinstance(analytic_dist, dict):
+                _logger.warning("Línea %d: analytic_distribution no es un diccionario", line_idx)
+                continue
+
+            # Validar cada analítica en la distribución
+            for analytic_account_id_local, percentage in analytic_dist.items():
+                try:
+                    analytic_id_int = int(analytic_account_id_local)
+                    analytic_account_local = self.env["account.analytic.account"].browse(
+                        analytic_id_int
+                    )
+
+                    if not analytic_account_local or not analytic_account_local.exists():
+                        _logger.warning(
+                            "Línea %d: Cuenta analítica ID %s no encontrada en BD origen",
+                            line_idx,
+                            analytic_account_id_local,
+                        )
+                        missing_analytics.append(
+                            f"ID Local: {analytic_account_id_local} - Cuenta analítica no encontrada en BD origen"
+                        )
+                        continue
+
+                    analytic_code = analytic_account_local.code
+                    analytic_name = analytic_account_local.name
+
+                    # Buscar en destino por código
+                    remote_analytic_id = False
+                    if analytic_code:
+                        remote_analytic_id = self._find_remote_analytic_by_code(
+                            models_proxy, db, uid, password, analytic_code
+                        )
+
+                    # Si no encontró por código, buscar por nombre
+                    if not remote_analytic_id and analytic_name:
+                        remote_analytic_id = self._find_remote_analytic_by_name(
+                            models_proxy, db, uid, password, analytic_name
+                        )
+
+                    if remote_analytic_id:
+                        _logger.info(
+                            "✅ Línea %d: Analítica '%s' encontrada en BD destino (ID: %s)",
+                            line_idx,
+                            analytic_name,
+                            remote_analytic_id,
+                        )
+                    else:
+                        # ❌ Analítica NO encontrada en destino
+                        error_detail = (
+                            f"Código: {analytic_code if analytic_code else 'SIN CÓDIGO'} - "
+                            f"Analítica: '{analytic_name}' (Porcentaje: {percentage}%)"
+                        )
+                        _logger.error(
+                            "❌ Línea %d: Analítica NO encontrada en BD destino: %s",
+                            line_idx,
+                            error_detail,
+                        )
+                        missing_analytics.append(error_detail)
+
+                except (ValueError, TypeError) as e:
+                    _logger.error(
+                        "Error procesando analytic_account_id '%s': %s",
+                        analytic_account_id_local,
+                        str(e),
+                    )
+                    missing_analytics.append(
+                        f"ID Local: {analytic_account_id_local} - Error al procesar (ver logs)"
+                    )
+
+        # ❌ LANZAR ERROR si hay analíticas faltantes (ANTES de enviar nada)
+        if missing_analytics:
+            error_message = (
+                "🚫 **NO SE PUEDE ENVIAR EL PEDIDO**\n\n"
+                "Las siguientes cuentas analíticas de la factura NO existen en la BD destino:\n\n"
+            )
+            for analytic in missing_analytics:
+                error_message += f"  • {analytic}\n"
+            error_message += (
+                "\n**ACCIÓN REQUERIDA:**\n"
+                "Por favor, registre estas cuentas analíticas en la BD destino antes de enviar el pedido.\n"
+                "Luego reintente enviar."
+            )
+            _logger.error("❌ Validación de analíticas bloqueó el envío: %s", error_message)
+            raise UserError(_(error_message))
+
+        _logger.info(
+            "✅ Validación exitosa: Todas las analíticas de la factura existen en BD destino."
+        )
+        return True
+
+    def _validate_accounts_for_destination(self):
+        """
+        Valida que todas las cuentas analíticas del documento origen
+        existan en la base de datos destino ANTES de enviar el pedido.
+
+        ✅ OBJETIVO: Evitar enviar pedidos que contengan analíticas
+        que no estén registradas en la BD destino.
+
+        Lanza un UserError si:
+        - Una cuenta analítica en distribución no existe en destino
+        """
+        self.ensure_one()
+
+        try:
+            models_proxy, db, uid, password = self._get_remote_models_proxy()
+        except UserError:
+            # Si no puede conectar a destino, relanzar el error
+            raise
+
+        # Obtener las líneas del documento (según el modelo)
+        if self._name == 'sale.order':
+            lines = self.order_line.filtered(lambda l: not l.display_type)
+        elif self._name == 'purchase.order':
+            lines = self.order_line
+        else:
+            # Otros modelos que hereden de IntegrationMixin
+            lines = getattr(self, 'order_line', [])
+
+        if not lines:
+            _logger.info("No hay líneas en el documento. Validación completada.")
+            return True
+
+        _logger.info("🔍 Iniciando validación de cuentas analíticas para %d líneas", len(lines))
+
+        missing_analytics = []
+
+        # --- VALIDACIÓN: Cuentas analíticas en distribución ---
+        for line_idx, line in enumerate(lines, 1):
+            analytic_dist = getattr(line, 'analytic_distribution', {})
+
+            _logger.debug(
+                "Línea %d (ID: %s): analytic_distribution = %s",
+                line_idx,
+                line.id,
+                analytic_dist,
+            )
+
+            if not analytic_dist:
+                _logger.debug("Línea %d: Sin distribución analítica", line_idx)
+                continue
+
+            # Parsear si es JSON string
+            if isinstance(analytic_dist, str):
+                try:
+                    analytic_dist = json.loads(analytic_dist)
+                    _logger.debug("Línea %d: analytic_distribution parseado desde JSON", line_idx)
+                except (json.JSONDecodeError, TypeError):
+                    _logger.warning("Línea %d: No se pudo parsear analytic_distribution como JSON: %s", line_idx, analytic_dist)
+                    continue
+
+            if not isinstance(analytic_dist, dict):
+                _logger.warning("Línea %d: analytic_distribution no es un diccionario", line_idx)
+                continue
+
+            # Validar cada analítica en la distribución
+            for analytic_account_id_local, percentage in analytic_dist.items():
+                try:
+                    analytic_id_int = int(analytic_account_id_local)
+                    analytic_account_local = self.env["account.analytic.account"].browse(
+                        analytic_id_int
+                    )
+
+                    if not analytic_account_local or not analytic_account_local.exists():
+                        _logger.warning(
+                            "Línea %d: Cuenta analítica ID %s no encontrada en BD origen",
+                            line_idx,
+                            analytic_account_id_local,
+                        )
+                        missing_analytics.append(
+                            f"ID Local: {analytic_account_id_local} - Cuenta analítica no encontrada en BD origen"
+                        )
+                        continue
+
+                    analytic_code = analytic_account_local.code
+                    analytic_name = analytic_account_local.name
+
+                    _logger.info(
+                        "Línea %d: Validando analítica '%s' (Código: %s, Porcentaje: %s%%)",
+                        line_idx,
+                        analytic_name,
+                        analytic_code if analytic_code else "SIN CÓDIGO",
+                        percentage,
+                    )
+
+                    # Buscar en destino por código
+                    remote_analytic_id = False
+                    if analytic_code:
+                        remote_analytic_id = self._find_remote_analytic_by_code(
+                            models_proxy, db, uid, password, analytic_code
+                        )
+                        if remote_analytic_id:
+                            _logger.info(
+                                "✅ Línea %d: Analítica '%s' encontrada en destino por CÓDIGO (ID Remoto: %s)",
+                                line_idx,
+                                analytic_name,
+                                remote_analytic_id,
+                            )
+
+                    # Si no encontró por código, buscar por nombre
+                    if not remote_analytic_id and analytic_name:
+                        remote_analytic_id = self._find_remote_analytic_by_name(
+                            models_proxy, db, uid, password, analytic_name
+                        )
+                        if remote_analytic_id:
+                            _logger.info(
+                                "✅ Línea %d: Analítica '%s' encontrada en destino por NOMBRE (ID Remoto: %s)",
+                                line_idx,
+                                analytic_name,
+                                remote_analytic_id,
+                            )
+
+                    # Si aún no la encuentra, es un error
+                    if not remote_analytic_id:
+                        error_detail = (
+                            f"Código: {analytic_code if analytic_code else 'SIN CÓDIGO'} - "
+                            f"Analítica: '{analytic_name}' (Línea: {line_idx})"
+                        )
+                        _logger.error(
+                            "❌ Línea %d: NO se encontró analítica '%s' en BD destino",
+                            line_idx,
+                            analytic_name,
+                        )
+                        missing_analytics.append(error_detail)
+
+                except (ValueError, TypeError) as e:
+                    _logger.error(
+                        "Error procesando analytic_account_id '%s': %s",
+                        analytic_account_id_local,
+                        str(e),
+                    )
+                    missing_analytics.append(
+                        f"ID Local: {analytic_account_id_local} - Error al procesar (ver logs)"
+                    )
+
+        # --- GENERAR MENSAJE DE ERROR SI FALTAN ANALÍTICAS ---
+        if missing_analytics:
+            error_message = (
+                "🚫 **NO se puede enviar el pedido.**\n\n"
+                "Las siguientes cuentas analíticas NO existen en la BD destino.\n"
+                "Por favor, registre estas cuentas en la BD destino antes de enviar el pedido.\n\n"
+                "**CUENTAS ANALÍTICAS NO ENCONTRADAS:**\n"
+            )
+            for analytic in missing_analytics:
+                error_message += f"  • {analytic}\n"
+
+            _logger.error("❌ Validación fallida: %s", error_message)
+            raise UserError(_(error_message))
+
+        _logger.info(
+            "✅ Validación completada: Todas las cuentas analíticas existen en BD destino."
+        )
+        return True
 
     def _replicate_invoice_accounts(
         self, models_proxy, db, uid, password, remote_invoice_id, invoice_type="out_invoice"
@@ -1536,6 +1968,9 @@ class IntegrationMixin(models.AbstractModel):
             )
             return True
 
+        except UserError:
+            # Relanzar UserError (errores de validación de analíticas, etc.)
+            raise
         except Exception as e:
             _logger.error(
                 "Error durante la replicación de cuentas contables para la factura remota ID %s: %s",
