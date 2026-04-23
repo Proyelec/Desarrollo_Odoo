@@ -1,7 +1,7 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 {
     "name": "Analytic Account Close Lock",
-    "version": "17.0.1.0.0",
+    "version": "17.0.1.0.1",
     "summary": "Bloquea nuevas imputaciones en cuentas analíticas cerradas",
     "description": """
         Permite marcar una cuenta analítica como 'Cerrada para imputación'.
