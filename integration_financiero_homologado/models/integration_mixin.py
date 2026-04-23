@@ -877,30 +877,35 @@ class IntegrationMixin(models.AbstractModel):
         identification_id = getattr(partner, "identification_id", False) or False
 
         # --- 1) BUSCAR ---
-        search_value = vat or rif or identification_id
-        if not search_value:
+        # Construir condiciones dinámicamente sólo para los campos que tienen
+        # valor localmente y que además existen en el modelo remoto.
+        conditions = []
+
+        if vat and "vat" in remote_fields:
+            conditions.append(("vat", "=", vat))
+        if rif and "rif" in remote_fields:
+            conditions.append(("rif", "=", rif))
+        if identification_id and "identification_id" in remote_fields:
+            conditions.append(("identification_id", "=", identification_id))
+
+        if not conditions:
             raise UserError(
-                _("El partner '%s' no tiene VAT/RIF/Identification ID.") % partner.name
+                _(
+                    "El partner '%s' no tiene VAT, RIF o Identification ID válido para buscar."
+                ) % partner.name
             )
 
-        # intenta con los 3 campos si existen
-        search_fields = [
-            f for f in ["vat", "rif", "identification_id"] if f in remote_fields
-        ]
-        remote_id = None
-        if search_fields:
-            # arma dominio OR plano
-            domain = []
-            for i in range(len(search_fields) - 1):
-                domain.append("|")
-            for f in search_fields:
-                domain.append((f, "=", search_value))
+        # Armar el dominio OR plano dinámicamente según la cantidad de condiciones
+        domain = []
+        for i in range(len(conditions) - 1):
+            domain.append("|")
+        domain.extend(conditions)
 
-            ids = models_proxy.execute_kw(
-                db, uid, password, remote_model, "search", [domain], {"limit": 1}
-            )
-            if ids:
-                return ids[0]
+        ids = models_proxy.execute_kw(
+            db, uid, password, remote_model, "search", [domain], {"limit": 1}
+        )
+        if ids:
+            return ids[0]
 
         # --- 2) CREAR ---
         def find_remote_id(model, field, value):
@@ -924,6 +929,72 @@ class IntegrationMixin(models.AbstractModel):
                 db, uid, password, model, "search", [[(field, "in", values)]]
             )
             return rids or []
+
+        def find_remote_journal_by_xmlid_or_id(xmlid, fallback_id):
+            """
+            Busca un diario remoto priorizando ID numérico y luego XMLID.
+            Esto evita depender de ir.model.data (permisos) y respeta IDs
+            fijos conocidos en la BD destino.
+            """
+            journal_id = False
+
+            if fallback_id:
+                try:
+                    exists = models_proxy.execute_kw(
+                        db,
+                        uid,
+                        password,
+                        "account.journal",
+                        "search",
+                        [[("id", "=", fallback_id)]],
+                        {"limit": 1},
+                    )
+                    if exists:
+                        journal_id = exists[0]
+                except xmlrpc.client.Fault as e:
+                    _logger.warning(
+                        "No se pudo validar diario por ID %s en destino: %s",
+                        fallback_id,
+                        e,
+                    )
+
+            if not journal_id and xmlid and "." in xmlid:
+                module, name = xmlid.split(".", 1)
+                try:
+                    data_rows = models_proxy.execute_kw(
+                        db,
+                        uid,
+                        password,
+                        "ir.model.data",
+                        "search_read",
+                        [[
+                            ("module", "=", module),
+                            ("name", "=", name),
+                            ("model", "=", "account.journal"),
+                        ]],
+                        {"fields": ["res_id"], "limit": 1},
+                    )
+                    if data_rows:
+                        possible_id = data_rows[0].get("res_id")
+                        if possible_id:
+                            exists = models_proxy.execute_kw(
+                                db,
+                                uid,
+                                password,
+                                "account.journal",
+                                "search",
+                                [[("id", "=", possible_id)]],
+                                {"limit": 1},
+                            )
+                            if exists:
+                                journal_id = exists[0]
+                except xmlrpc.client.Fault as e:
+                    _logger.warning(
+                        "Sin permiso para leer ir.model.data en destino (%s). Se omite resolución por XMLID.",
+                        e,
+                    )
+
+            return journal_id
 
         # country_id por código país si existe, si no por nombre
         country_remote_id = False
@@ -967,6 +1038,25 @@ class IntegrationMixin(models.AbstractModel):
                 "account.journal", "code", partner.sale_islr_journal_id.code
             ) or find_remote_id(
                 "account.journal", "name", partner.sale_islr_journal_id.name
+            )
+
+        # Valores por defecto para diarios cuando no llegan desde origen.
+        # Se prioriza XMLID y luego ID numérico en la BD destino.
+        if not purchase_journal_id:
+            purchase_journal_id = find_remote_journal_by_xmlid_or_id(
+                "__export__.account_journal_50_6f7f6db9", 50
+            )
+        if not purchase_sales_id:
+            purchase_sales_id = find_remote_journal_by_xmlid_or_id(
+                "__export__.account_journal_59_646a9b76", 59
+            )
+        if not purchase_islr_journal_id:
+            purchase_islr_journal_id = find_remote_journal_by_xmlid_or_id(
+                "__export__.account_journal_51_92b21442", 51
+            )
+        if not sale_islr_journal_id:
+            sale_islr_journal_id = find_remote_journal_by_xmlid_or_id(
+                "__export__.account_journal_60_467b4244", 60
             )
 
         receivable_id = False
