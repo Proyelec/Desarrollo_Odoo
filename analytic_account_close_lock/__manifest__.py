@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 {
     "name": "Analytic Account Close Lock",
     "version": "17.0.1.0.0",
