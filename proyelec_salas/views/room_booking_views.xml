@@ -16,7 +16,7 @@
             </xpath>
 
             <!-- Sin invisible — siempre visibles -->
-            <xpath expr="//sheet//group[1]" position="after">
+            <xpath expr="//sheet/group" position="after">
                 <group string="Asistentes y Agenda" colspan="2">
                     <field name="attendee_ids"
                            widget="many2many_tags"

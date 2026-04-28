@@ -2,15 +2,7 @@
 {
     "name": "Analytic Account Close Lock",
     "version": "17.0.1.0.0",
-    "summary": "Bloquea nuevas imputaciones en cuentas analíticas cerradas",
-    "description": """
-        Permite marcar una cuenta analítica como 'Cerrada para imputación'.
-        Una vez cerrada:
-        - No se pueden crear ni modificar líneas de factura/asiento que la usen.
-        - No se pueden crear ni modificar líneas analíticas directas sobre ella.
-        - Solo el grupo 'Analytic Close Manager' puede cerrar o reabrir cuentas.
-        - Se registra quién cerró la cuenta y en qué fecha.
-    """,
+    "summary": "Bloquea nuevas imputaciones en cuentas analiticas cerradas",
     "category": "Accounting/Accounting",
     "author": "Juan Villasmil",
     "license": "LGPL-3",

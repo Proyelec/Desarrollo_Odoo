@@ -2,6 +2,7 @@
 from odoo import api, fields, models
 from odoo.tools import html2plaintext
 from markupsafe import Markup
+import pytz
 
 
 class RoomBooking(models.Model):
@@ -79,6 +80,17 @@ class RoomBooking(models.Model):
                 booking._notify_attendees("update")
         return res
 
+    def _format_datetime_tz(self, dt):
+        """Convierte datetime UTC a la zona horaria del organizador."""
+        tz_name = (
+            self.organizer_id.tz
+            or self.env.user.tz
+            or 'America/Caracas'
+        )
+        user_tz = pytz.timezone(tz_name)
+        dt_local = pytz.utc.localize(dt).astimezone(user_tz)
+        return dt_local.strftime('%d/%m/%Y %H:%M')
+
     def _notify_attendees(self, action="create"):
         self.ensure_one()
         if not self.attendee_ids:
@@ -98,8 +110,8 @@ class RoomBooking(models.Model):
             ).format(
                 name=self.name,
                 sala=self.room_id.display_name,
-                inicio=self.start_datetime.strftime('%d/%m/%Y %H:%M'),
-                fin=self.stop_datetime.strftime('%d/%m/%Y %H:%M'),
+                inicio=self._format_datetime_tz(self.start_datetime),
+                fin=self._format_datetime_tz(self.stop_datetime),
                 agenda=Markup("<li><b>Agenda:</b> {}</li>").format(self.description) if self.description else Markup(""),
                 organizador=self.organizer_id.name,
             )
@@ -116,8 +128,8 @@ class RoomBooking(models.Model):
             ).format(
                 name=self.name,
                 sala=self.room_id.display_name,
-                inicio=self.start_datetime.strftime('%d/%m/%Y %H:%M'),
-                fin=self.stop_datetime.strftime('%d/%m/%Y %H:%M'),
+                inicio=self._format_datetime_tz(self.start_datetime),
+                fin=self._format_datetime_tz(self.stop_datetime),
                 agenda=Markup("<li><b>Agenda:</b> {}</li>").format(self.description) if self.description else Markup(""),
             )
         partner_ids = self.attendee_ids.mapped("partner_id").ids
