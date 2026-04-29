@@ -1,39 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-
-    <!-- Filtro por defecto: solo mis eventos -->
-    <record id="calendar_event_view_search_personal" model="ir.ui.view">
-        <field name="name">calendar.event.search.personal</field>
-        <field name="model">calendar.event</field>
-        <field name="inherit_id" ref="calendar.view_calendar_event_search"/>
-        <field name="arch" type="xml">
-            <search>
-                <filter string="Mis eventos" 
-                        name="my_events"
-                        domain="[('partner_ids', 'in', [uid])]"
-                        default="1"/>
-            </search>
-        </field>
-    </record>
-
-    <!-- Acción del calendario personal -->
-    <record id="action_calendar_personal" model="ir.actions.act_window">
-        <field name="name">Mi Calendario</field>
-        <field name="res_model">calendar.event</field>
-        <field name="view_mode">calendar,tree,form</field>
-        <field name="domain">[('partner_ids', 'in', [uid])]</field>
-        <field name="context">{
-            'default_partner_ids': [uid],
-            'search_default_my_events': 1,
-        }</field>
-    </record>
-
-    <!-- Ítem de menú -->
-    <menuitem
-        id="menu_calendar_personal"
-        name="Mi Calendario"
-        action="action_calendar_personal"
-        parent="calendar.mail_menu_calendar"
-        sequence="5"/>
-
+    <!--
+        Vista reservada para futuras personalizaciones del calendario.
+        La sincronización room.booking -> calendar.event se maneja en models/room_booking.py
+    -->
 </odoo>
