@@ -3,6 +3,7 @@ from odoo import api, fields, models
 from odoo.tools import html2plaintext
 from markupsafe import Markup
 import pytz
+from datetime import timedelta
 
 
 class RoomBooking(models.Model):
@@ -19,6 +20,16 @@ class RoomBooking(models.Model):
     is_private = fields.Boolean(string="Privada", default=True, tracking=6)
     can_see_details = fields.Boolean(
         compute="_compute_can_see_details",
+    )
+    reminder_15_sent = fields.Boolean(
+        string="Recordatorio 15 min enviado",
+        default=False,
+        copy=False,
+    )
+    reminder_5_sent = fields.Boolean(
+        string="Recordatorio 5 min enviado",
+        default=False,
+        copy=False,
     )
 
     def _user_can_see(self):
@@ -141,3 +152,60 @@ class RoomBooking(models.Model):
             subtype_xmlid="mail.mt_comment",
             partner_ids=partner_ids,
         )
+
+    @api.model
+    def _send_meeting_reminders(self):
+        """Cron: envía recordatorios 15 y 5 minutos antes de cada reunión."""
+        now = fields.Datetime.now()
+        window_15_start = now + timedelta(minutes=14)
+        window_15_end = now + timedelta(minutes=16)
+        window_5_start = now + timedelta(minutes=4)
+        window_5_end = now + timedelta(minutes=6)
+
+        # Recordatorio 15 minutos
+        bookings_15 = self.search([
+            ('start_datetime', '>=', window_15_start),
+            ('start_datetime', '<=', window_15_end),
+            ('reminder_15_sent', '=', False),
+        ])
+        for booking in bookings_15:
+            partner_ids = booking.attendee_ids.mapped("partner_id").ids
+            if booking.organizer_id.partner_id:
+                partner_ids = list(set(partner_ids + [booking.organizer_id.partner_id.id]))
+            if not partner_ids:
+                continue
+            body = Markup(
+                "⏰ <b>La reunión comenzará en 15 minutos.</b> Vayan tomando las medidas necesarias.<br/>"
+                "📍 <b>Sala:</b> {sala}"
+            ).format(sala=booking.room_id.display_name)
+            booking.message_post(
+                body=body,
+                message_type="comment",
+                subtype_xmlid="mail.mt_comment",
+                partner_ids=partner_ids,
+            )
+            booking.reminder_15_sent = True
+
+        # Recordatorio 5 minutos
+        bookings_5 = self.search([
+            ('start_datetime', '>=', window_5_start),
+            ('start_datetime', '<=', window_5_end),
+            ('reminder_5_sent', '=', False),
+        ])
+        for booking in bookings_5:
+            partner_ids = booking.attendee_ids.mapped("partner_id").ids
+            if booking.organizer_id.partner_id:
+                partner_ids = list(set(partner_ids + [booking.organizer_id.partner_id.id]))
+            if not partner_ids:
+                continue
+            body = Markup(
+                "🔔 <b>La reunión comenzará en 5 minutos.</b> Dirígete al sitio.<br/>"
+                "📍 <b>Sala:</b> {sala}"
+            ).format(sala=booking.room_id.display_name)
+            booking.message_post(
+                body=body,
+                message_type="comment",
+                subtype_xmlid="mail.mt_comment",
+                partner_ids=partner_ids,
+            )
+            booking.reminder_5_sent = True
