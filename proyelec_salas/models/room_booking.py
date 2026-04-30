@@ -175,16 +175,16 @@ class RoomBooking(models.Model):
             if not partner_ids:
                 continue
             body = Markup(
-                "⏰ <b>La reunión comenzará en 15 minutos.</b> Vayan tomando las medidas necesarias.<br/>"
+                "⏰ <b>La reunión comenzará en 15 minutos.</b><br/>"
                 "📍 <b>Sala:</b> {sala}"
             ).format(sala=booking.room_id.display_name)
-            booking.message_post(
-                body=body,
-                message_type="comment",
-                subtype_xmlid="mail.mt_comment",
+            booking.message_notify(
                 partner_ids=partner_ids,
+                body=body,
+                subject=f"⏰ Recordatorio: {booking.name}",
+                subtype_xmlid="mail.mt_comment",
             )
-            booking.reminder_15_sent = True
+            booking.sudo().write({'reminder_15_sent': True})
 
         # Recordatorio 5 minutos
         bookings_5 = self.search([
@@ -199,7 +199,7 @@ class RoomBooking(models.Model):
             if not partner_ids:
                 continue
             body = Markup(
-                "🔔 <b>La reunión comenzará en 5 minutos.</b> Dirígete al sitio.<br/>"
+                "🔔 <b>La reunión comenzará en 5 minutos.</b><br/>"
                 "📍 <b>Sala:</b> {sala}"
             ).format(sala=booking.room_id.display_name)
             booking.message_post(
