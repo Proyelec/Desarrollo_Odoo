@@ -178,10 +178,11 @@ class RoomBooking(models.Model):
                 "⏰ <b>La reunión comenzará en 15 minutos.</b><br/>"
                 "📍 <b>Sala:</b> {sala}"
             ).format(sala=booking.room_id.display_name)
-            booking.message_notify(
-                partner_ids=partner_ids,
+            booking.message_post(
                 body=body,
-                subject=f"⏰ Recordatorio: {booking.name}",
+                message_type="comment",
+                subtype_xmlid="mail.mt_comment",
+                partner_ids=partner_ids,
             )
             booking.sudo().write({'reminder_15_sent': True})
 
@@ -201,9 +202,10 @@ class RoomBooking(models.Model):
                 "🔔 <b>La reunión comenzará en 5 minutos.</b><br/>"
                 "📍 <b>Sala:</b> {sala}"
             ).format(sala=booking.room_id.display_name)
-            booking.message_notify(
-                partner_ids=partner_ids,
+            booking.message_post(
                 body=body,
-                subject=f"🔔 Recordatorio: {booking.name}",
+                message_type="comment",
+                subtype_xmlid="mail.mt_comment",
+                partner_ids=partner_ids,
             )
             booking.sudo().write({'reminder_5_sent': True})
