@@ -99,12 +99,13 @@ class ProductTemplate(models.Model):
             codigo = template.default_code or ''
             m = SNP_COMPLETO.match(codigo)
             if not m:
-                continue  # No es SNP válido, Boyer se encarga
+                continue
 
-            duplicado = self.env['product.template'].search([
-                ('default_code', '=', codigo),
-                ('id', '!=', template.id),
-            ], limit=1)
+            dominio = [('default_code', '=', codigo)]
+            if template.id:
+                dominio.append(('id', '!=', template.id))
+
+            duplicado = self.env['product.template'].search(dominio, limit=1)
 
             if duplicado:
                 prefijo = m.group(1)
