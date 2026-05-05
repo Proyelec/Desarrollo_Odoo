@@ -11,6 +11,7 @@
         'security/ir.model.access.csv',
         'security/record_rules.xml',
         'views/room_booking_views.xml',
+        'data/cron.xml',
     ],
     'assets': {
         'web.assets_backend': [
@@ -18,6 +19,7 @@
             'proyelec_salas/static/src/room_booking_calendar_patch.js',
         ],
     },
+    'post_init_hook': 'post_init_hook',
     'installable': True,
     'application': False,
     'auto_install': False,
