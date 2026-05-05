@@ -167,8 +167,52 @@ class ProductProduct(models.Model):
     _inherit = 'product.product'
 
     # ------------------------------------------------------------------
+    # Intercepta el onchange nativo de Odoo en product.product
+    # Este es el que dispara el mensaje "La referencia interna ya existe"
+    # cuando el usuario presiona Enter. Lo sobreescribimos para que
+    # en códigos SNP muestre el correlativo sugerido.
+    # ------------------------------------------------------------------
+    @api.onchange('default_code')
+    def _onchange_default_code(self):
+        codigo = (self.default_code or '').strip().upper()
+        if not codigo:
+            return
+
+        m = SNP_COMPLETO.match(codigo)
+        if not m:
+            # No es código SNP — respetamos el comportamiento original de Odoo
+            domain = [('default_code', '=', self.default_code)]
+            if self.id.origin:
+                domain.append(('id', '!=', self.id.origin))
+            if self.env['product.product'].search(domain, limit=1):
+                return {'warning': {
+                    'title': 'Nota:',
+                    'message': f"La referencia interna '{self.default_code}' ya existe.",
+                }}
+            return
+
+        # Es código SNP — interceptamos con nuestro mensaje mejorado
+        prefijo = m.group(1)
+        domain = [('default_code', '=', codigo)]
+        if self.id.origin:
+            domain.append(('id', '!=', self.id.origin))
+
+        if self.env['product.product'].search(domain, limit=1):
+            siguiente = _calcular_siguiente_snp(
+                self.env, prefijo,
+                excluir_product_id=self.id.origin or None,
+            )
+            return {'warning': {
+                'title': 'Código ya en uso',
+                'message': (
+                    f"El código '{codigo}' ya está en uso.\n\n"
+                    f"El siguiente correlativo disponible es: {siguiente}"
+                ),
+            }}
+
+    # ------------------------------------------------------------------
     # CAPA 3 en product.product — intercepta ANTES del _sql_constraints
-    # de Boyer, tanto al presionar Enter como al guardar manualmente.
+    # de Boyer al guardar manualmente.
     # ------------------------------------------------------------------
     @api.constrains('default_code')
     def _check_snp_duplicado_variant(self):
