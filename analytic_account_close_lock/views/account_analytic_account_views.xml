@@ -1,0 +1,52 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_account_analytic_account_form_inherit_close_lock" model="ir.ui.view">
+        <field name="name">account.analytic.account.form.close.lock</field>
+        <field name="model">account.analytic.account</field>
+        <field name="inherit_id" ref="analytic.view_account_analytic_account_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="before">
+                <div class="alert alert-warning mb-0" role="alert"
+                     invisible="not x_closed_for_posting">
+                    <strong>⚠ Cuenta cerrada para imputación.</strong>
+                    No se permiten nuevas imputaciones analíticas sobre esta cuenta.
+                    Cerrada el
+                    <field name="x_closed_date" readonly="1" nolabel="1"/>
+                    por
+                    <field name="x_closed_by" readonly="1" nolabel="1"/>.
+                </div>
+            </xpath>
+            <xpath expr="//sheet" position="inside">
+                <group string="Control de cierre analítico" name="analytic_close_group">
+                    <group>
+                        <field name="x_closed_for_posting"
+                               widget="boolean_toggle"
+                               string="Cerrada para imputación"/>
+                    </group>
+                    <group invisible="not x_closed_for_posting">
+                        <field name="x_closed_date" readonly="1"/>
+                        <field name="x_closed_by" readonly="1"/>
+                    </group>
+                </group>
+            </xpath>
+        </field>
+    </record>
+    <record id="view_account_analytic_account_tree_inherit_close_lock" model="ir.ui.view">
+        <field name="name">account.analytic.account.tree.close.lock</field>
+        <field name="model">account.analytic.account</field>
+        <field name="inherit_id" ref="analytic.view_account_analytic_account_list"/>
+        <field name="arch" type="xml">
+            <xpath expr="//tree" position="inside">
+                <field name="x_closed_for_posting"
+                       string="Cerrada"
+                       optional="show"/>
+                <field name="x_closed_date"
+                       string="Fecha cierre"
+                       optional="hide"/>
+                <field name="x_closed_by"
+                       string="Cerrada por"
+                       optional="hide"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
