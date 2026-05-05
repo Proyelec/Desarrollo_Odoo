@@ -49,20 +49,13 @@ def _calcular_siguiente_snp(env, prefijo, excluir_template_id=None, excluir_prod
 class ProductTemplate(models.Model):
     _inherit = 'product.template'
 
-    # ------------------------------------------------------------------
-    # CAPA 1 — Autocompletado (onchange)
-    # Trigger: usuario escribe "TORSNP" y sale del campo (Tab/clic)
-    # Acción:  sugiere el siguiente correlativo disponible (max + 1)
-    # ------------------------------------------------------------------
     @api.onchange('default_code')
     def _onchange_default_code_snp(self):
         codigo = (self.default_code or '').strip().upper()
 
-        # Normalizar a mayúsculas
         if self.default_code and self.default_code != codigo:
             self.default_code = codigo
 
-        # --- Trigger de autocompletado ---
         if SNP_TRIGGER.match(codigo):
             siguiente = _calcular_siguiente_snp(
                 self.env, codigo,
@@ -71,7 +64,6 @@ class ProductTemplate(models.Model):
             self.default_code = siguiente
             return
 
-        # --- Warning por correlativo fuera de secuencia ---
         m = SNP_COMPLETO.match(codigo)
         if m:
             prefijo = m.group(1)
@@ -114,6 +106,88 @@ class ProductTemplate(models.Model):
                         }
                     }
 
+    # ------------------------------------------------------------------
+    # Sobreescribe el onchange nativo de Odoo en product.template
+    # que dispara el mensaje genérico al presionar Enter.
+    # En códigos SNP muestra el correlativo sugerido.
+    # ------------------------------------------------------------------
+    @api.onchange('default_code')
+    def _onchange_default_code(self):
+        codigo = (self.default_code or '').strip().upper()
+        if not codigo:
+            return
+
+        m = SNP_COMPLETO.match(codigo)
+        if not m:
+            # No es SNP — comportamiento original de Odoo
+            domain = [('default_code', '=', self.default_code)]
+            if self.id.origin:
+                domain.append(('id', '!=', self.id.origin))
+            if self.env['product.template'].search(domain, limit=1):
+                return {'warning': {
+                    'title': 'Nota:',
+                    'message': f"La referencia interna '{self.default_code}' ya existe.",
+                }}
+            return
+
+        # Es SNP — mensaje mejorado con correlativo sugerido
+        prefijo = m.group(1)
+        domain = [('default_code', '=', codigo)]
+        if self.id.origin:
+            domain.append(('id', '!=', self.id.origin))
+
+        if self.env['product.template'].search(domain, limit=1):
+            siguiente = _calcular_siguiente_snp(
+                self.env, prefijo,
+                excluir_template_id=self.id.origin or None,
+            )
+            return {'warning': {
+                'title': 'Código ya en uso',
+                'message': (
+                    f"El código '{codigo}' ya está en uso.\n\n"
+                    f"El siguiente correlativo disponible es: {siguiente}"
+                ),
+            }}
+
+    @api.constrains('default_code')
+    def _check_snp_formato(self):
+        for template in self:
+            codigo = template.default_code or ''
+            if 'SNP' not in codigo.upper():
+                continue
+            if not SNP_COMPLETO.match(codigo):
+                raise ValidationError(
+                    f"El código '{codigo}' no cumple el formato SNP requerido.\n\n"
+                    f"Formato correcto: [PREFIJO]SNP[NNN]\n"
+                    f"  - Prefijo: entre 3 y 6 letras mayúsculas\n"
+                    f"  - SNP: literal en mayúsculas\n"
+                    f"  - Número: entre 1 y 4 dígitos\n\n"
+                    f"Ejemplos válidos: TORSNP006, CABSNP014, ABRSNP123"
+                )
+
+    @api.constrains('default_code')
+    def _check_snp_duplicado(self):
+        for template in self:
+            codigo = template.default_code or ''
+            m = SNP_COMPLETO.match(codigo)
+            if not m:
+                continue
+
+            dominio = [('default_code', '=', codigo)]
+            if template.id:
+                dominio.append(('id', '!=', template.id))
+
+            duplicado = self.env['product.template'].search(dominio, limit=1)
+            if duplicado:
+                prefijo = m.group(1)
+                siguiente = _calcular_siguiente_snp(
+                    self.env, prefijo,
+                    excluir_template_id=template.id or None,
+                )
+                raise ValidationError(
+                    f"El código '{codigo}' ya está en uso.\n\n"
+                    f"El siguiente correlativo disponible es: {siguiente}"
+                )
     # ------------------------------------------------------------------
     # CAPA 2 — Validación de formato (constrains)
     # Bloquea códigos SNP con formato inválido al momento de guardar.
