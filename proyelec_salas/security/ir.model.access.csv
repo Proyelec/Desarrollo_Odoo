@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_room_booking_user,room.booking user,room.model_room_booking,proyelec_salas.group_room_booking_user,1,1,1,0
+access_room_booking_leader,room.booking leader,room.model_room_booking,proyelec_salas.group_room_booking_leader,1,1,1,1
