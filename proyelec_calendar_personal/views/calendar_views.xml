@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Vista reservada para futuras personalizaciones del calendario.
+        La sincronización room.booking -> calendar.event se maneja en models/room_booking.py
+    -->
+</odoo>
