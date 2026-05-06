@@ -27,7 +27,6 @@ class SaleOrderLine(models.Model):
 class SaleOrder(models.Model):
     _inherit = "sale.order"
 
-    # ── KPI fields ──────────────────────────────────────────────────────────
     x_kpi_total_lines = fields.Integer(
         string="Total líneas cotizadas",
         compute="_compute_kpi",
@@ -63,7 +62,6 @@ class SaleOrder(models.Model):
             order.x_kpi_conversion_rate = (ganado / total * 100) if total else 0.0
 
     def action_open_so_to_po_wizard(self):
-        """Open wizard to transfer won lines to a Purchase Order."""
         self.ensure_one()
         ganado_lines = self.order_line.filtered(
             lambda l: l.x_studio_ganado and not l.x_po_transferred
