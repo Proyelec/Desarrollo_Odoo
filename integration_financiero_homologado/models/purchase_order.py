@@ -39,6 +39,19 @@ class PurchaseOrder(models.Model):
             models_proxy, db, uid, password, 'purchase.order.line'
         )
 
+        # ✅ NUEVO: Obtener el ID remoto del término de pago (si existe)
+        payment_term_id_remoto = False
+        if self.payment_term_id:
+            try:
+                payment_terms = models_proxy.execute_kw(
+                    db, uid, password, 'account.payment.term', 'search',
+                    [['name', '=', self.payment_term_id.name]], {'limit': 1}
+                )
+                if payment_terms:
+                    payment_term_id_remoto = payment_terms[0]
+            except Exception as e:
+                _logger.warning(f"Error buscando término de pago remoto: {e}")
+
         order_lines = []
         for line in self.order_line:
             # ✅ AHORA: busca y si no existe, crea producto remoto
@@ -46,20 +59,26 @@ class PurchaseOrder(models.Model):
                 models_proxy, db, uid, password, line.product_id
             )
 
-            # ✅ NUEVA FUNCIONALIDAD: Convertir moneda USD a Bs si es necesario
-            # Si currency_id es USD, usar price_unit_bs; si no, usar price_unit normal
-            if self.currency_id.name == 'USD':
-                price_to_send = line.price_unit_bs  # Usar precio en bolívares si moneda es USD
-            else:
-                price_to_send = line.price_unit  # Usar precio normal si no es USD
-
+            # ✅ ACTUALIZADA: Sincronizar precio USD original en ref_unit
+            # Si currency_id es USD:
+            #   - ref_unit = price_unit (USD original, para cálculo posterior en destino)
+            #   - price_unit = price_unit_bs (precio en bolívares con tasa actual)
+            # Si no es USD: comportamiento normal (sin ref_unit)
             line_vals = {
                 'product_id': product_id_remoto,
                 'name': line.name,
                 'product_qty': line.product_qty,
-                'price_unit': price_to_send,
                 'date_planned': line.date_planned.strftime('%Y-%m-%d %H:%M:%S') if line.date_planned else False,
             }
+            
+            if self.currency_id.name == 'USD':
+                # Enviar precio original en USD en ref_unit
+                line_vals['ref_unit'] = line.price_unit
+                # Enviar precio en bolívares como price_unit
+                line_vals['price_unit'] = line.price_unit_bs
+            else:
+                # Comportamiento normal para otras monedas
+                line_vals['price_unit'] = line.price_unit
 
             # Mapear impuestos de la línea hacia IDs remotos (específico para compras)
             try:
@@ -85,13 +104,26 @@ class PurchaseOrder(models.Model):
 
             order_lines.append((0, 0, clean_line_vals))
 
-        return {
-            'partner_id': partner_id_remoto,
-            'user_id': user_id_remoto,
-            'date_order': fields.Datetime.to_string(self.date_order),
-            'origin': self.name,
+        # ✅ Construir return de forma segura sin valores None
+        return_vals = {
+            'date_order': fields.Datetime.to_string(self.date_order) if self.date_order else fields.Datetime.now(),
+            'origin': self.name or 'SIN_NOMBRE',
             'order_line': order_lines,
         }
+        
+        # Agregar partner_id solo si existe
+        if partner_id_remoto:
+            return_vals['partner_id'] = partner_id_remoto
+        
+        # Agregar user_id solo si existe  
+        if user_id_remoto:
+            return_vals['user_id'] = user_id_remoto
+        
+        # ✅ Agregar payment_term_id para cálculo correcto de date_maturity
+        if payment_term_id_remoto:
+            return_vals['payment_term_id'] = payment_term_id_remoto
+        
+        return return_vals
 
     def action_send_to_homologado(self):
         """Prepara los datos y llama al método genérico con las acciones de Compra."""
@@ -101,6 +133,10 @@ class PurchaseOrder(models.Model):
                 _("Esta orden de compra ya fue enviada a la BD destino (ID: %s).")
                 % self.homologado_id
             )
+
+        # ✅ VALIDACIÓN CRÍTICA: Verificar analíticas de la factura origen ANTES de enviar el pedido
+        # Si falta una analítica en destino, esto lanzará un error y NO se enviará nada
+        self._validate_invoice_analytics_before_send()
 
         vals = self._prepare_homologado_purchase_data()
         return self._action_send_to_homologado_generic(

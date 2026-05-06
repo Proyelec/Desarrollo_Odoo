@@ -11,6 +11,7 @@
         'security/ir.model.access.csv',
         'security/record_rules.xml',
         'views/room_booking_views.xml',
+        'data/cron.xml',
     ],
     'assets': {
         'web.assets_backend': [
