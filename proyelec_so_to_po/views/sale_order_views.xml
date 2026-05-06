@@ -6,9 +6,8 @@
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
 
-            <!-- KPI stat buttons (solo informativos) -->
             <xpath expr="//div[@name='button_box']" position="inside">
-                <button class="oe_stat_button" icon="fa-list" type="object">
+                <button class="oe_stat_button" icon="fa-list">
                     <div class="o_stat_info">
                         <span class="o_stat_value">
                             <field name="x_kpi_ganado_lines"/>/<field name="x_kpi_total_lines"/>
@@ -16,7 +15,7 @@
                         <span class="o_stat_text">Ganado</span>
                     </div>
                 </button>
-                <button class="oe_stat_button" icon="fa-percent" type="object">
+                <button class="oe_stat_button" icon="fa-percent">
                     <div class="o_stat_info">
                         <span class="o_stat_value">
                             <field name="x_kpi_conversion_rate"/>%
@@ -35,7 +34,6 @@
                 </button>
             </xpath>
 
-            <!-- Columna Ganado en líneas -->
             <xpath expr="//field[@name='order_line']/tree//field[@name='price_unit']" position="after">
                 <field name="x_studio_ganado" optional="show"/>
                 <field name="x_po_transferred" optional="show" readonly="1"/>
