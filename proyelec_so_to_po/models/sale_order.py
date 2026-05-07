@@ -61,6 +61,13 @@ class SaleOrder(models.Model):
             order.x_kpi_transferred_lines = transferred
             order.x_kpi_conversion_rate = (ganado / total * 100) if total else 0.0
 
+    def _action_confirm(self):
+        """Solo lanza procurement para líneas marcadas como Ganado."""
+        ganado_lines = self.order_line.filtered(lambda l: l.x_studio_ganado)
+        if ganado_lines:
+            ganado_lines._action_launch_stock_rule()
+        return super(SaleOrder, self.with_context(skip_procurement=True))._action_confirm()
+
     def action_open_so_to_po_wizard(self):
         self.ensure_one()
         ganado_lines = self.order_line.filtered(
