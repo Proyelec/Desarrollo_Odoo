@@ -27,7 +27,6 @@
 
             <xpath expr="//field[@name='order_line']/tree//field[@name='price_unit']" position="after">
                 <field name="x_studio_ganado" optional="show"/>
-                <field name="x_po_transferred" optional="show" readonly="1"/>
             </xpath>
 
         </field>
