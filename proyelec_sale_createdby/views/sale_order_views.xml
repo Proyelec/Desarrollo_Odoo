@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="sale_order_tree_createdby" model="ir.ui.view">
+        <field name="name">sale.order.tree.createdby</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.sale_order_tree"/>
+        <field name="arch" type="xml">
+            <field name="user_id" position="after">
+                <field name="create_uid"
+                       string="Creado por"
+                       widget="many2one_avatar_user"
+                       optional="show"
+                       readonly="1"/>
+            </field>
+        </field>
+    </record>
+</odoo>
