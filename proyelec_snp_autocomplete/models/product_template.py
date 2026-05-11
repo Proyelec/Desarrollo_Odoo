@@ -49,6 +49,38 @@ def _calcular_siguiente_snp(env, prefijo, excluir_template_id=None, excluir_prod
 class ProductTemplate(models.Model):
     _inherit = 'product.template'
 
+    # ------------------------------------------------------------------
+    # CAPA 0 — Asignación automática de SNP en importación masiva
+    # Solo aplica cuando default_code viene vacío Y el contexto
+    # indica que viene de una importación (import_file=True).
+    # En creación manual, Boyer bloquea normalmente con required.
+    # ------------------------------------------------------------------
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if not self.env.context.get('import_file'):
+                continue
+            if vals.get('default_code'):
+                continue
+
+            nombre = vals.get('name', '')
+            solo_letras = re.sub(r'[^A-Za-z]', '', nombre).upper()
+
+            if len(solo_letras) < 3:
+                raise ValidationError(
+                    f"No se pudo asignar un código SNP automático al producto '{nombre}'.\n"
+                    f"El nombre debe contener al menos 3 letras."
+                )
+
+            prefijo = solo_letras[:3] + 'SNP'
+            siguiente = _calcular_siguiente_snp(self.env, prefijo)
+            vals['default_code'] = siguiente
+
+        return super().create(vals_list)
+
+    # ------------------------------------------------------------------
+    # CAPA 1 — Autocompletado (onchange)
+    # ------------------------------------------------------------------
     @api.onchange('default_code')
     def _onchange_default_code_snp(self):
         codigo = (self.default_code or '').strip().upper()
@@ -105,6 +137,91 @@ class ProductTemplate(models.Model):
                             ),
                         }
                     }
+
+    # ------------------------------------------------------------------
+    # Sobreescribe el onchange nativo de Odoo en product.template
+    # ------------------------------------------------------------------
+    @api.onchange('default_code')
+    def _onchange_default_code(self):
+        codigo = (self.default_code or '').strip().upper()
+        if not codigo:
+            return
+
+        m = SNP_COMPLETO.match(codigo)
+        if not m:
+            domain = [('default_code', '=', self.default_code)]
+            if self.id.origin:
+                domain.append(('id', '!=', self.id.origin))
+            if self.env['product.template'].search(domain, limit=1):
+                return {'warning': {
+                    'title': 'Nota:',
+                    'message': f"La referencia interna '{self.default_code}' ya existe.",
+                }}
+            return
+
+        prefijo = m.group(1)
+        domain = [('default_code', '=', codigo)]
+        if self.id.origin:
+            domain.append(('id', '!=', self.id.origin))
+
+        if self.env['product.template'].search(domain, limit=1):
+            siguiente = _calcular_siguiente_snp(
+                self.env, prefijo,
+                excluir_template_id=self.id.origin or None,
+            )
+            return {'warning': {
+                'title': 'Código ya en uso',
+                'message': (
+                    f"El código '{codigo}' ya está en uso.\n\n"
+                    f"El siguiente correlativo disponible es: {siguiente}"
+                ),
+            }}
+
+    # ------------------------------------------------------------------
+    # CAPA 2 — Validación de formato (constrains)
+    # ------------------------------------------------------------------
+    @api.constrains('default_code')
+    def _check_snp_formato(self):
+        for template in self:
+            codigo = template.default_code or ''
+            if 'SNP' not in codigo.upper():
+                continue
+            if not SNP_COMPLETO.match(codigo):
+                raise ValidationError(
+                    f"El código '{codigo}' no cumple el formato SNP requerido.\n\n"
+                    f"Formato correcto: [PREFIJO]SNP[NNN]\n"
+                    f"  - Prefijo: entre 3 y 6 letras mayúsculas\n"
+                    f"  - SNP: literal en mayúsculas\n"
+                    f"  - Número: entre 1 y 4 dígitos\n\n"
+                    f"Ejemplos válidos: TORSNP006, CABSNP014, ABRSNP123"
+                )
+
+    # ------------------------------------------------------------------
+    # CAPA 3 — Detección de duplicado con sugerencia (constrains)
+    # ------------------------------------------------------------------
+    @api.constrains('default_code')
+    def _check_snp_duplicado(self):
+        for template in self:
+            codigo = template.default_code or ''
+            m = SNP_COMPLETO.match(codigo)
+            if not m:
+                continue
+
+            dominio = [('default_code', '=', codigo)]
+            if template.id:
+                dominio.append(('id', '!=', template.id))
+
+            duplicado = self.env['product.template'].search(dominio, limit=1)
+            if duplicado:
+                prefijo = m.group(1)
+                siguiente = _calcular_siguiente_snp(
+                    self.env, prefijo,
+                    excluir_template_id=template.id or None,
+                )
+                raise ValidationError(
+                    f"El código '{codigo}' ya está en uso.\n\n"
+                    f"El siguiente correlativo disponible es: {siguiente}"
+                )
 
     # ------------------------------------------------------------------
     # Sobreescribe el onchange nativo de Odoo en product.template
