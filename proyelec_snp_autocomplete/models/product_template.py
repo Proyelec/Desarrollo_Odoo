@@ -359,9 +359,6 @@ class ProductProduct(models.Model):
 
     # ------------------------------------------------------------------
     # Intercepta el onchange nativo de Odoo en product.product
-    # Este es el que dispara el mensaje "La referencia interna ya existe"
-    # cuando el usuario presiona Enter. Lo sobreescribimos para que
-    # en códigos SNP muestre el correlativo sugerido.
     # ------------------------------------------------------------------
     @api.onchange('default_code')
     def _onchange_default_code(self):
@@ -371,7 +368,6 @@ class ProductProduct(models.Model):
 
         m = SNP_COMPLETO.match(codigo)
         if not m:
-            # No es código SNP — respetamos el comportamiento original de Odoo
             domain = [('default_code', '=', self.default_code)]
             if self.id.origin:
                 domain.append(('id', '!=', self.id.origin))
@@ -382,7 +378,6 @@ class ProductProduct(models.Model):
                 }}
             return
 
-        # Es código SNP — interceptamos con nuestro mensaje mejorado
         prefijo = m.group(1)
         domain = [('default_code', '=', codigo)]
         if self.id.origin:
@@ -402,8 +397,7 @@ class ProductProduct(models.Model):
             }}
 
     # ------------------------------------------------------------------
-    # CAPA 3 en product.product — intercepta ANTES del _sql_constraints
-    # de Boyer al guardar manualmente.
+    # CAPA 3 — intercepta ANTES del _sql_constraints de Boyer
     # ------------------------------------------------------------------
     @api.constrains('default_code')
     def _check_snp_duplicado_variant(self):
@@ -428,3 +422,15 @@ class ProductProduct(models.Model):
                     f"El código '{codigo}' ya está en uso.\n\n"
                     f"El siguiente correlativo disponible es: {siguiente}"
                 )
+
+    # ------------------------------------------------------------------
+    # Sobreescribe validación de Boyer para permitir default_code vacío
+    # durante importación masiva — nuestro create lo asigna automáticamente
+    # ------------------------------------------------------------------
+    @api.constrains('default_code')
+    def _check_default_code_not_empty(self):
+        if self.env.context.get('import_file'):
+            return
+        for product in self:
+            if not product.default_code:
+                raise ValidationError("El código interno es obligatorio.")
