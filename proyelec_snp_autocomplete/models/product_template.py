@@ -57,6 +57,8 @@ class ProductTemplate(models.Model):
     # ------------------------------------------------------------------
     @api.model_create_multi
     def create(self, vals_list):
+        codigos_en_lote = {}
+
         for vals in vals_list:
             if not self.env.context.get('import_file'):
                 continue
@@ -73,8 +75,15 @@ class ProductTemplate(models.Model):
                 )
 
             prefijo = solo_letras[:3] + 'SNP'
-            siguiente = _calcular_siguiente_snp(self.env, prefijo)
+
+            maximo_bd = _calcular_maximo_snp(self.env, prefijo)
+            maximo_lote = codigos_en_lote.get(prefijo, 0)
+            maximo = max(maximo_bd or 0, maximo_lote)
+            siguiente_num = maximo + 1
+            siguiente = f'{prefijo}{str(siguiente_num).zfill(3)}'
+
             vals['default_code'] = siguiente
+            codigos_en_lote[prefijo] = siguiente_num
 
         return super().create(vals_list)
 
