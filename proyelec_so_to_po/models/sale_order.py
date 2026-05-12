@@ -18,12 +18,17 @@ class SaleOrderLine(models.Model):
         help="Proveedor de esta línea. Determina el costo usado para calcular el margen.",
     )
 
-    @api.depends("product_id", "company_id", "currency_id", "product_uom", "x_supplier_id")
+    @api.depends("product_id", "company_id", "currency_id", "product_uom", "x_supplier_id", "x_studio_coste_1")
     def _compute_purchase_price(self):
         for line in self:
             if not line.product_id:
                 line.purchase_price = 0.0
                 continue
+            # Si hay costo manual ingresado en x_studio_coste_1, usarlo
+            if line.x_studio_coste_1:
+                line.purchase_price = line.x_studio_coste_1
+                continue
+            # Si hay proveedor seleccionado, buscar su precio en supplierinfo
             if line.x_supplier_id:
                 supplierinfo = self.env["product.supplierinfo"].search(
                     [
@@ -37,6 +42,7 @@ class SaleOrderLine(models.Model):
                 if supplierinfo:
                     line.purchase_price = supplierinfo.price
                     continue
+            # Comportamiento estándar de Odoo
             line = line.with_company(line.company_id)
             product_cost = line.product_id.uom_id._compute_price(
                 line.product_id.standard_price,
