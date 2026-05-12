@@ -11,6 +11,30 @@ class SaleOrderLine(models.Model):
         help="Indica que esta línea fue adjudicada al cliente.",
     )
 
+    x_supplier_id = fields.Many2one(
+        comodel_name="res.partner",
+        string="Proveedor",
+        domain=[("supplier_rank", ">", 0)],
+        help="Proveedor asociado a esta línea. Al seleccionarlo, actualiza el costo desde la tarifa del proveedor.",
+    )
+
+    @api.onchange("x_supplier_id")
+    def _onchange_x_supplier_id(self):
+        for line in self:
+            if not line.x_supplier_id or not line.product_id:
+                continue
+            supplierinfo = self.env["product.supplierinfo"].search(
+                [
+                    ("partner_id", "=", line.x_supplier_id.id),
+                    "|",
+                    ("product_id", "=", line.product_id.id),
+                    ("product_tmpl_id", "=", line.product_id.product_tmpl_id.id),
+                ],
+                limit=1,
+            )
+            if supplierinfo:
+                line.purchase_price = supplierinfo.price
+
 
 class SaleOrder(models.Model):
     _inherit = "sale.order"
@@ -47,4 +71,4 @@ class SaleOrder(models.Model):
         ganado_lines = self.order_line.filtered(lambda l: l.x_studio_ganado)
         if ganado_lines:
             ganado_lines._action_launch_stock_rule()
-        return super(SaleOrder, self.with_context(skip_procurement=True))._action_confirm()
+        return super(SaleOrder, self).with_context(skip_procurement=True)._action_confirm()
