@@ -15,25 +15,37 @@ class SaleOrderLine(models.Model):
         comodel_name="res.partner",
         string="Proveedor",
         domain=[("supplier_rank", ">", 0)],
-        help="Proveedor asociado a esta línea. Al seleccionarlo, actualiza el costo desde la tarifa del proveedor.",
+        help="Proveedor de esta línea. Determina el costo usado para calcular el margen.",
     )
 
-    @api.onchange("x_supplier_id")
-    def _onchange_x_supplier_id(self):
+    @api.depends("product_id", "company_id", "currency_id", "product_uom", "x_supplier_id")
+    def _compute_purchase_price(self):
         for line in self:
-            if not line.x_supplier_id or not line.product_id:
+            if not line.product_id:
+                line.purchase_price = 0.0
                 continue
-            supplierinfo = self.env["product.supplierinfo"].search(
-                [
-                    ("partner_id", "=", line.x_supplier_id.id),
-                    "|",
-                    ("product_id", "=", line.product_id.id),
-                    ("product_tmpl_id", "=", line.product_id.product_tmpl_id.id),
-                ],
-                limit=1,
+            if line.x_supplier_id:
+                supplierinfo = self.env["product.supplierinfo"].search(
+                    [
+                        ("partner_id", "=", line.x_supplier_id.id),
+                        "|",
+                        ("product_id", "=", line.product_id.id),
+                        ("product_tmpl_id", "=", line.product_id.product_tmpl_id.id),
+                    ],
+                    limit=1,
+                )
+                if supplierinfo:
+                    line.purchase_price = supplierinfo.price
+                    continue
+            line = line.with_company(line.company_id)
+            product_cost = line.product_id.uom_id._compute_price(
+                line.product_id.standard_price,
+                line.product_uom,
             )
-            if supplierinfo:
-                line.purchase_price = supplierinfo.price
+            line.purchase_price = line._convert_to_sol_currency(
+                product_cost,
+                line.product_id.cost_currency_id,
+            )
 
 
 class SaleOrder(models.Model):
