@@ -15,7 +15,7 @@ class SaleOrderLine(models.Model):
         comodel_name="res.partner",
         string="Proveedor",
         domain=[("supplier_rank", ">", 0)],
-        help="Proveedor de esta línea.",
+        help="Proveedor de esta línea. Determina el costo usado para calcular el margen.",
     )
 
     x_studio_coste_1 = fields.Float(
@@ -23,7 +23,7 @@ class SaleOrderLine(models.Model):
         store=True,
         readonly=False,
         digits="Product Price",
-        help="Costo unitario editable por línea. Sobreescribe el costo automático del producto.",
+        help="Costo unitario editable por línea. Sobreescribe el costo automatico del producto.",
     )
 
     @api.depends("product_id", "company_id", "currency_id", "product_uom", "x_supplier_id", "x_studio_coste_1")
@@ -63,17 +63,17 @@ class SaleOrder(models.Model):
     _inherit = "sale.order"
 
     x_kpi_total_lines = fields.Integer(
-        string="Total líneas cotizadas",
+        string="Total lineas cotizadas",
         compute="_compute_kpi",
         store=False,
     )
     x_kpi_ganado_lines = fields.Integer(
-        string="Líneas ganadas",
+        string="Lineas ganadas",
         compute="_compute_kpi",
         store=False,
     )
     x_kpi_conversion_rate = fields.Float(
-        string="Tasa de conversión (%)",
+        string="Tasa de conversion (%)",
         compute="_compute_kpi",
         store=False,
         digits=(5, 2),
@@ -90,8 +90,9 @@ class SaleOrder(models.Model):
             order.x_kpi_conversion_rate = (ganado / total * 100) if total else 0.0
 
     def _action_confirm(self):
-        """Solo lanza procurement para líneas marcadas como Ganado."""
-        ganado_lines = self.order_line.filtered(lambda l: l.x_studio_ganado)
-        if ganado_lines:
-            ganado_lines._action_launch_stock_rule()
-        return super(SaleOrder, self).with_context(skip_procurement=True)._action_confirm()
+        """Solo lanza procurement para lineas marcadas como Ganado."""
+        for order in self:
+            ganado_lines = order.order_line.filtered("x_studio_ganado")
+            if ganado_lines:
+                ganado_lines._action_launch_stock_rule()
+        return super(SaleOrder, self)._action_confirm()
