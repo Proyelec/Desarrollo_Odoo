@@ -4,13 +4,17 @@ import { SuggestionService } from "@mail/core/common/suggestion_service";
 
 patch(SuggestionService.prototype, {
     searchPartnerSuggestions(cleanedSearchTerm, thread, sort) {
-        const results = super.searchPartnerSuggestions(...arguments);
-        if (!Array.isArray(results)) return results ?? [];
-        return results.filter((item) => {
-            if (!item) return false;
-            const user = item.user;
-            if (!user) return false;
-            return user.isInternalUser === true;
-        });
+        const result = super.searchPartnerSuggestions(...arguments);
+        const filterPartners = (partners) =>
+            partners.filter((partner) => {
+                if (!partner) return false;
+                if (partner.active === false) return false;
+                return partner.user && partner.user.isInternalUser === true;
+            });
+        return {
+            ...result,
+            mainSuggestions: filterPartners(result.mainSuggestions ?? []),
+            extraSuggestions: filterPartners(result.extraSuggestions ?? []),
+        };
     },
 });
