@@ -8,7 +8,7 @@ patch(SuggestionService.prototype, {
         const filterPartners = (partners) =>
             partners.filter((partner) => {
                 if (!partner) return false;
-                if (partner.active === false) return false;
+                if (partner.active !== true) return false;
                 return partner.user && partner.user.isInternalUser === true;
             });
         return {
