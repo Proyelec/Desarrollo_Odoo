@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(ssh 31897463@proyelec-ait-31897463.dev.odoo.com \"grep -n 'get_mention_suggestions' /home/odoo/src/odoo/addons/mail/models/res_partner.py 2>/dev/null || grep -rn 'get_mention_suggestions' /home/odoo/src/odoo/addons/mail/ 2>/dev/null | head -30\")",
+      "PowerShell(ssh 31897463@proyelec-ait-31897463.dev.odoo.com \"sed -n '270,320p' /home/odoo/src/odoo/addons/mail/models/res_partner.py\")",
+      "PowerShell(ssh 31897463@proyelec-ait-31897463.dev.odoo.com \"find /home/odoo/src/odoo/addons/mail -name 'suggestion_service.js' 2>/dev/null\")",
+      "PowerShell(ssh 31897463@proyelec-ait-31897463.dev.odoo.com \"cat /home/odoo/src/odoo/addons/mail/static/src/core/common/suggestion_service.js\")",
+      "PowerShell(ssh 31897463@proyelec-ait-31897463.dev.odoo.com \"grep -n 'mail_partner_format\\\\|isInternalUser\\\\|is_internal_user\\\\|share\\\\|active' /home/odoo/src/odoo/addons/mail/models/res_partner.py | head -40\")",
+      "PowerShell(ssh 31897463@proyelec-ait-31897463.dev.odoo.com \"find /home/odoo/src/odoo/addons/mail/static/src -name 'persona_model.js' -o -name 'persona.js' 2>/dev/null | head -5\")",
+      "PowerShell(ssh 31897463@proyelec-ait-31897463.dev.odoo.com \"cat /home/odoo/src/odoo/addons/mail/static/src/core/common/persona_model.js\")",
+      "PowerShell(ssh 31897463@proyelec-ait-31897463.dev.odoo.com \"sed -n '216,265p' /home/odoo/src/odoo/addons/mail/models/res_partner.py\")",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
+    ]
+  }
+}
