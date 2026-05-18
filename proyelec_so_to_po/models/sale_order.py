@@ -43,9 +43,10 @@ class SaleOrder(models.Model):
             order.x_kpi_conversion_rate = (ganado / total * 100) if total else 0.0
 
     def _action_confirm(self):
-        """Solo lanza procurement para líneas marcadas como Ganado."""
+        # skip_procurement suppresses sale_stock's blanket _action_launch_stock_rule call on all lines
+        result = super(SaleOrder, self.with_context(skip_procurement=True))._action_confirm()
         for order in self:
             ganado_lines = order.order_line.filtered("x_studio_ganado")
             if ganado_lines:
                 ganado_lines._action_launch_stock_rule()
-        return super(SaleOrder, self)._action_confirm()
+        return result
