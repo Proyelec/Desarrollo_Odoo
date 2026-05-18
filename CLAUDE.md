@@ -178,6 +178,10 @@ class SaleOrderLine(models.Model):
 3. **Siempre verificar** `git status` antes de sugerir un commit
 4. **Solo sugerir** el mensaje de commit — el desarrollador ejecuta `git add` y `git commit`
 5. En caso de duda, elegir siempre la opción más conservadora
+6. **Nunca interpretar instrucciones ambiguas como permiso para hacer push.**
+   Palabras como "sube", "deploy", "sube los cambios", "sincroniza" NO autorizan
+   ejecutar `git push`. Siempre confirmar explícitamente con el desarrollador
+   antes de cualquier operación git remota.
 
 ---
 
@@ -206,6 +210,36 @@ El staging AIT se renueva mensualmente. Al renovarse:
 1. Obtener el nuevo SSH desde Odoo.sh
 2. Actualizar **únicamente** el archivo `.env` con el nuevo valor de `ODOO_AIT_SSH` y `ODOO_AIT_DB`
 3. Este archivo `CLAUDE.md` no necesita cambios
+
+---
+
+## 11. REGLAS DE NAVEGACIÓN WEB (Chrome DevTools MCP)
+
+### Permitido
+
+- Navegar e inspeccionar cualquier URL de AIT (*.dev.odoo.com)
+- Leer DOM, logs de consola, requests de red, títulos de página
+- Hacer hard reload con caché limpio después de cada odoo-update antes de verificar
+- Verificar que las vistas renderizan correctamente después de un update
+- Leer nombres técnicos de campos, IDs de vistas, nombres de modelos desde la UI
+
+### Prohibido
+
+- Interactuar con cualquier URL que NO contenga `.dev.odoo.com` — puede ser producción
+- Usar Odoo Studio para modificar campos o vistas desde la UI
+- Hacer clicks que creen, editen o borren registros
+- Toda modificación estructural va por código en módulos `proyelec_*` desplegada vía Git
+
+### Antes de cualquier navegación
+
+Verificar que la URL contiene `.dev.odoo.com`. Si no — detener y alertar al desarrollador.
+
+### Después de cada odoo-update
+
+Ejecutar hard reload antes de verificar la UI:
+
+- Usar `Page.reload` con `ignoreCache: true` via Chrome DevTools Protocol
+- Esto previene falsos positivos por caché de assets de Odoo
 
 ---
 
