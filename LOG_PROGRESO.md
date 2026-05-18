@@ -6,6 +6,10 @@
 - **Verificado en AIT:** SO S02187 confirmado con 1 línea ganada (CABSNP007) y 1 no-ganada (V-500-711-1); solo se generó P02178 para CABSNP007; la línea no-ganada no produjo PO — comportamiento correcto
 - **Pendiente:** Limpiar SOs de prueba (S02186, S02187) y POs (P02176–P02178) en AIT; `proyelec_so_to_po` queda pendiente de merge a main
 
+- **Qué cambió (cont.):** Validación agregada en `_action_confirm` — lanza `UserError` si ninguna línea tiene `x_studio_ganado=True`; mensaje: "Por favor, marca al menos un producto como Ganado antes de confirmar el pedido."; validación corre antes del `super()` para evitar cualquier cambio de estado parcial
+- **Verificado:** Update limpio en AIT, sin errores ni CRITICAL en logs
+- **Pendiente:** Merge `proyelec_so_to_po` a main
+
 ## Sesión 2026-05-15
 
 - **Qué cambió:** Verificación funcional de `proyelec_snp_autocomplete` en AIT — no se modificó código, solo pruebas en UI
