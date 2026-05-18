@@ -1,5 +1,11 @@
 # LOG DE PROGRESO — AIT
 
+## Sesión 2026-05-18
+
+- **Qué cambió:** Fix en `proyelec_so_to_po` — `_action_confirm` ahora usa `skip_procurement=True` al llamar al `super()` para suprimir la llamada masiva de `sale_stock` que lanzaba stock rules a TODAS las líneas, luego dispara `_action_launch_stock_rule()` manualmente solo sobre líneas con `x_studio_ganado=True`
+- **Verificado en AIT:** SO S02187 confirmado con 1 línea ganada (CABSNP007) y 1 no-ganada (V-500-711-1); solo se generó P02178 para CABSNP007; la línea no-ganada no produjo PO — comportamiento correcto
+- **Pendiente:** Limpiar SOs de prueba (S02186, S02187) y POs (P02176–P02178) en AIT; `proyelec_so_to_po` queda pendiente de merge a main
+
 ## Sesión 2026-05-15
 
 - **Qué cambió:** Verificación funcional de `proyelec_snp_autocomplete` en AIT — no se modificó código, solo pruebas en UI
