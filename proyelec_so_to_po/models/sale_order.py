@@ -1,4 +1,5 @@
 from odoo import models, fields, api
+from odoo.exceptions import UserError
 
 
 class SaleOrderLine(models.Model):
@@ -43,6 +44,11 @@ class SaleOrder(models.Model):
             order.x_kpi_conversion_rate = (ganado / total * 100) if total else 0.0
 
     def _action_confirm(self):
+        for order in self:
+            if not order.order_line.filtered("x_studio_ganado"):
+                raise UserError(
+                    "Por favor, marca al menos un producto como Ganado antes de confirmar el pedido."
+                )
         # skip_procurement suppresses sale_stock's blanket _action_launch_stock_rule call on all lines
         result = super(SaleOrder, self.with_context(skip_procurement=True))._action_confirm()
         for order in self:
