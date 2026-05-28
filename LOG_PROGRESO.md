@@ -1,5 +1,11 @@
 # LOG DE PROGRESO — AIT
 
+## Sesión 2026-05-28
+
+- **Qué cambió:** Creado módulo nuevo `proyelec_purchase_export` — campo computed `x_analytic_display` en `purchase.order.line` que resuelve el JSON `analytic_distribution` a nombres de `account.analytic.account` como texto plano exportable; `store=False`, carga en batch para eficiencia
+- **Bug/Limitación:** SCP bloqueado en Odoo.sh (subsistema no disponible); despliegue requiere `git push` para que staging auto-instale
+- **Pendiente:** Instalar módulo en AIT tras push (`odoo-bin -i proyelec_purchase_export`); verificar que aparece en el exportador de Odoo en líneas de PO
+
 ## Sesión 2026-05-18
 
 - **Qué cambió:** Fix en `proyelec_so_to_po` — `_action_confirm` ahora usa `skip_procurement=True` al llamar al `super()` para suprimir la llamada masiva de `sale_stock` que lanzaba stock rules a TODAS las líneas, luego dispara `_action_launch_stock_rule()` manualmente solo sobre líneas con `x_studio_ganado=True`
