@@ -1,6 +1,6 @@
 {
     "name": "Proyelec - SO to PO (Ganado)",
-    "version": "17.0.1.0.0",
+    "version": "17.0.1.1.0",
     "category": "Sales/Purchase",
     "summary": "Filtra líneas ganadas al confirmar SO para crear PO selectiva",
     "depends": ["sale_management", "purchase", "sale_margin", "sale_stock"],
