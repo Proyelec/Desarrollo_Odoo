@@ -5,7 +5,7 @@
         <field name="model">sale.order</field>
         <field name="inherit_id" ref="bi_convert_purchase_from_sales.sale_order_view"/>
         <field name="arch" type="xml">
-            <xpath expr="//header/button[@string='Create Purchase Order']" position="attributes">
+            <xpath expr="//header/button[@name='%(bi_convert_purchase_from_sales.action_transientmodel_wizard)d']" position="attributes">
                 <attribute name="invisible">True</attribute>
             </xpath>
             <xpath expr="//button[@name='action_open_purchase_order']" position="attributes">
