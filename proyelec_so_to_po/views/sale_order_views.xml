@@ -1,5 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <record id="view_sale_order_form_hide_bi_convert_buttons" model="ir.ui.view">
+        <field name="name">sale.order.form.hide.bi.convert.buttons</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="bi_convert_purchase_from_sales.sale_order_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header/button[@string='Create Purchase Order']" position="attributes">
+                <attribute name="invisible">True</attribute>
+            </xpath>
+            <xpath expr="//button[@name='action_open_purchase_order']" position="attributes">
+                <attribute name="invisible">True</attribute>
+            </xpath>
+        </field>
+    </record>
+
     <record id="view_sale_order_form_so_to_po" model="ir.ui.view">
         <field name="name">sale.order.form.so_to_po</field>
         <field name="model">sale.order</field>
