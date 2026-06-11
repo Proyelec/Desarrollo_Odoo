@@ -8,6 +8,10 @@ _logger = logging.getLogger(__name__)
 class CrmLead(models.Model):
     _inherit = 'crm.lead'
 
+    def action_set_won_rainbowman(self):
+        super().action_set_won_rainbowman()
+        return False
+
     def write(self, vals):
         if 'stage_id' in vals:
             new_stage = self.env['crm.stage'].browse(vals['stage_id'])
