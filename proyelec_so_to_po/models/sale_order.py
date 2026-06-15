@@ -26,14 +26,6 @@ class SaleOrder(models.Model):
         compute="_compute_kpi",
         store=False,
     )
-    x_kpi_lineas_ganadas = fields.Integer(
-        compute="_compute_kpi",
-        store=True,
-    )
-    x_kpi_lineas_total = fields.Integer(
-        compute="_compute_kpi",
-        store=True,
-    )
     x_kpi_conversion_rate = fields.Float(
         string="Tasa de conversión (%)",
         compute="_compute_kpi",
@@ -61,8 +53,6 @@ class SaleOrder(models.Model):
             ganado = len(lines.filtered("x_studio_ganado"))
             order.x_kpi_total_lines = total
             order.x_kpi_ganado_lines = ganado
-            order.x_kpi_lineas_ganadas = ganado
-            order.x_kpi_lineas_total = total
             order.x_kpi_conversion_rate = (ganado / total * 100) if total else 0.0
 
     def _action_confirm(self):
