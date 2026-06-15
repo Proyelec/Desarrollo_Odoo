@@ -37,6 +37,14 @@ class SaleOrder(models.Model):
         compute="_compute_kpi_label",
         store=False,
     )
+    x_kpi_lineas_ganadas = fields.Integer(
+        compute="_compute_kpi",
+        store=True,
+    )
+    x_kpi_lineas_total = fields.Integer(
+        compute="_compute_kpi",
+        store=True,
+    )
 
     @api.depends("order_line.x_studio_ganado")
     def _compute_kpi_label(self):
@@ -54,6 +62,8 @@ class SaleOrder(models.Model):
             order.x_kpi_total_lines = total
             order.x_kpi_ganado_lines = ganado
             order.x_kpi_conversion_rate = (ganado / total * 100) if total else 0.0
+            order.x_kpi_lineas_ganadas = ganado
+            order.x_kpi_lineas_total = total
 
     def _action_confirm(self):
         for order in self:
