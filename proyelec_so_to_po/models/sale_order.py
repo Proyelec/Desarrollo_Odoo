@@ -29,7 +29,7 @@ class SaleOrder(models.Model):
     x_kpi_conversion_rate = fields.Float(
         string="Tasa de conversión (%)",
         compute="_compute_kpi",
-        store=False,
+        store=True,
         digits=(5, 2),
     )
 
