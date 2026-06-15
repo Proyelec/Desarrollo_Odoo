@@ -55,6 +55,12 @@
                 <field name="x_kpi_conversion_label"
                        string="Ganado"
                        optional="show"/>
+                <field name="x_kpi_lineas_ganadas"
+                       column_invisible="1"
+                       sum="/"/>
+                <field name="x_kpi_lineas_total"
+                       column_invisible="1"
+                       sum=" "/>
             </xpath>
         </field>
     </record>
