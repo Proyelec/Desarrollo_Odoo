@@ -32,6 +32,18 @@ class SaleOrder(models.Model):
         store=True,
         digits=(5, 2),
     )
+    x_kpi_conversion_label = fields.Char(
+        string="Conversión",
+        compute="_compute_kpi_label",
+        store=False,
+    )
+
+    @api.depends("order_line.x_studio_ganado")
+    def _compute_kpi_label(self):
+        for order in self:
+            total = len(order.order_line)
+            ganadas = len(order.order_line.filtered("x_studio_ganado"))
+            order.x_kpi_conversion_label = f"{ganadas}/{total}" if total else "0/0"
 
     @api.depends("order_line", "order_line.x_studio_ganado")
     def _compute_kpi(self):

@@ -52,8 +52,8 @@
         <field name="inherit_id" ref="sale.view_quotation_tree"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='amount_total']" position="after">
-                <field name="x_kpi_conversion_rate"
-                       string="Conversión %"
+                <field name="x_kpi_conversion_label"
+                       string="Ganado"
                        optional="show"/>
             </xpath>
         </field>
