@@ -55,14 +55,6 @@
                 <field name="x_kpi_conversion_label"
                        string="Ganado"
                        optional="show"/>
-                <field name="x_kpi_lineas_ganadas"
-                       string="Gan."
-                       optional="hide"
-                       sum="Ganadas"/>
-                <field name="x_kpi_lineas_total"
-                       string="Of."
-                       optional="hide"
-                       sum="Ofertadas"/>
             </xpath>
         </field>
     </record>
