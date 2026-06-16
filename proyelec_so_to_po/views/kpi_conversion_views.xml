@@ -35,8 +35,6 @@
                             context="{'group_by': 'x_studio_ganado'}"/>
                     <filter string="Pedido" name="group_order"
                             context="{'group_by': 'order_id'}"/>
-                    <filter string="Mes de oferta" name="group_mes"
-                            context="{'group_by': 'order_id.date_order:month'}"/>
                 </group>
             </search>
         </field>
