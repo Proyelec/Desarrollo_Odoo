@@ -54,7 +54,7 @@
     <menuitem
         id="menu_kpi_lineas_conversion"
         name="KPI Conversión (Gráfico)"
-        parent="sale.menu_report_sale"
+        parent="sale.menu_sale_report"
         action="action_kpi_lineas_conversion"
         sequence="20"/>
 </odoo>
