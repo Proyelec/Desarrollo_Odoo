@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_sale_order_line_graph_kpi" model="ir.ui.view">
+        <field name="name">sale.order.line.graph.kpi</field>
+        <field name="model">sale.order.line</field>
+        <field name="arch" type="xml">
+            <graph type="pie" string="Conversión de Líneas">
+                <field name="x_studio_ganado" type="row"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="view_sale_order_line_search_kpi" model="ir.ui.view">
+        <field name="name">sale.order.line.search.kpi</field>
+        <field name="model">sale.order.line</field>
+        <field name="arch" type="xml">
+            <search string="Filtros KPI Conversión">
+                <field name="order_id" string="Presupuesto/Pedido"/>
+                <field name="product_id"/>
+                <filter string="Ganadas" name="filter_ganadas"
+                        domain="[('x_studio_ganado', '=', True)]"/>
+                <filter string="Pendientes" name="filter_pendientes"
+                        domain="[('x_studio_ganado', '=', False)]"/>
+                <separator/>
+                <filter string="Hoy" name="filter_hoy"
+                        domain="[('order_id.date_order', '&gt;=', datetime.datetime.combine(context_today(), datetime.time(0,0,0)).strftime('%Y-%m-%d %H:%M:%S')),
+                                 ('order_id.date_order', '&lt;=', datetime.datetime.combine(context_today(), datetime.time(23,59,59)).strftime('%Y-%m-%d %H:%M:%S'))]"/>
+                <filter string="Este mes" name="filter_mes"
+                        domain="[('order_id.date_order', '&gt;=', (context_today() + relativedelta(day=1)).strftime('%Y-%m-%d')),
+                                 ('order_id.date_order', '&lt;', (context_today() + relativedelta(months=1, day=1)).strftime('%Y-%m-%d'))]"/>
+                <filter string="Este año" name="filter_anio"
+                        domain="[('order_id.date_order', '&gt;=', context_today().strftime('%Y-01-01'))]"/>
+                <group expand="0" string="Agrupar por">
+                    <filter string="Estado (Ganado)" name="group_ganado"
+                            context="{'group_by': 'x_studio_ganado'}"/>
+                    <filter string="Pedido" name="group_order"
+                            context="{'group_by': 'order_id'}"/>
+                    <filter string="Mes de oferta" name="group_mes"
+                            context="{'group_by': 'order_id.date_order:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_kpi_lineas_conversion" model="ir.actions.act_window">
+        <field name="name">KPI Conversión de Líneas</field>
+        <field name="res_model">sale.order.line</field>
+        <field name="view_mode">graph</field>
+        <field name="view_id" ref="view_sale_order_line_graph_kpi"/>
+        <field name="search_view_id" ref="view_sale_order_line_search_kpi"/>
+        <!-- 100% = líneas de pedidos confirmados (sale/done) -->
+        <field name="domain">[('order_id.state', 'in', ['sale', 'done'])]</field>
+        <field name="context">{'search_default_filter_anio': 1}</field>
+    </record>
+
+    <menuitem
+        id="menu_kpi_lineas_conversion"
+        name="KPI Conversión (Gráfico)"
+        parent="sale.menu_report_sale"
+        action="action_kpi_lineas_conversion"
+        sequence="20"/>
+</odoo>
