@@ -12,6 +12,18 @@ class SaleOrderLine(models.Model):
         help="Indica que esta línea fue adjudicada al cliente.",
     )
 
+    x_kpi_estado_ganado = fields.Selection(
+        selection=[('ganado', 'Ganado'), ('pendiente', 'Sin adjudicar')],
+        string="Estado",
+        compute="_compute_kpi_estado",
+        store=True,
+    )
+
+    @api.depends('x_studio_ganado')
+    def _compute_kpi_estado(self):
+        for line in self:
+            line.x_kpi_estado_ganado = 'ganado' if line.x_studio_ganado else 'pendiente'
+
 
 class SaleOrder(models.Model):
     _inherit = "sale.order"
@@ -29,9 +41,20 @@ class SaleOrder(models.Model):
     x_kpi_conversion_rate = fields.Float(
         string="Tasa de conversión (%)",
         compute="_compute_kpi",
-        store=False,
+        store=True,
         digits=(5, 2),
     )
+    x_kpi_conversion_label = fields.Char(
+        string="Conversión",
+        compute="_compute_kpi_label",
+        store=False,
+    )
+    @api.depends("order_line.x_studio_ganado")
+    def _compute_kpi_label(self):
+        for order in self:
+            total = len(order.order_line)
+            ganadas = len(order.order_line.filtered("x_studio_ganado"))
+            order.x_kpi_conversion_label = f"{ganadas}/{total}" if total else "0/0"
 
     @api.depends("order_line", "order_line.x_studio_ganado")
     def _compute_kpi(self):
