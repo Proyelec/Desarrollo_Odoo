@@ -12,6 +12,18 @@ class SaleOrderLine(models.Model):
         help="Indica que esta línea fue adjudicada al cliente.",
     )
 
+    x_kpi_estado_ganado = fields.Selection(
+        selection=[('ganado', 'Ganado'), ('pendiente', 'Pendiente')],
+        string="Estado",
+        compute="_compute_kpi_estado",
+        store=True,
+    )
+
+    @api.depends('x_studio_ganado')
+    def _compute_kpi_estado(self):
+        for line in self:
+            line.x_kpi_estado_ganado = 'ganado' if line.x_studio_ganado else 'pendiente'
+
 
 class SaleOrder(models.Model):
     _inherit = "sale.order"

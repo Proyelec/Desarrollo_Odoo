@@ -5,7 +5,7 @@
         <field name="model">sale.order.line</field>
         <field name="arch" type="xml">
             <graph type="pie" string="Conversión de Líneas">
-                <field name="x_studio_ganado" type="row"/>
+                <field name="x_kpi_estado_ganado" type="row"/>
             </graph>
         </field>
     </record>
@@ -32,7 +32,7 @@
                         domain="[('order_id.date_order', '&gt;=', context_today().strftime('%Y-01-01'))]"/>
                 <group expand="0" string="Agrupar por">
                     <filter string="Estado (Ganado)" name="group_ganado"
-                            context="{'group_by': 'x_studio_ganado'}"/>
+                            context="{'group_by': 'x_kpi_estado_ganado'}"/>
                     <filter string="Pedido" name="group_order"
                             context="{'group_by': 'order_id'}"/>
                 </group>
