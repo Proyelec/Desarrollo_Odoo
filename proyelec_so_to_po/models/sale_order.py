@@ -13,7 +13,7 @@ class SaleOrderLine(models.Model):
     )
 
     x_kpi_estado_ganado = fields.Selection(
-        selection=[('ganado', 'Ganado'), ('pendiente', 'Pendiente')],
+        selection=[('ganado', 'Ganado'), ('pendiente', 'Sin adjudicar')],
         string="Estado",
         compute="_compute_kpi_estado",
         store=True,
