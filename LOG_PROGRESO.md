@@ -65,6 +65,22 @@ proyelec_ingreso_x_departamento/
 
 ---
 
+### Instalación (2026-06-18)
+
+**Resultado**: Instalado OK en AIT2. 275 queries, sin errores del módulo.
+
+**Issues encontrados y resueltos**:
+1. `<list>` como tag raíz en arch → `ValueError: Wrong value for ir.ui.view.type: 'list'`. Esta versión Odoo 17 requiere `<tree>` como tag. El tag `<list>` está disponible en versiones más nuevas pero NO en esta instancia específica. **Regla para futuros módulos**: siempre usar `<tree>` para list views.
+2. `view_mode="list,form"` también requiere `"tree,form"`. Confirmado en módulos existentes (auditlog, account_withholding).
+3. `column_invisible` en tree embebida → usar `invisible` directamente.
+
+**DB verificado**:
+- Departamentos OPS/PCL creados ✓
+- Tabla `sale_order_department_summary` existe ✓  
+- Columna `departamento_id` en `sale_order_line` ✓
+
+---
+
 ### Checklist de prueba manual (pendiente)
 
 - [ ] Instalar módulo → OPS/PCL creados automáticamente
