@@ -31,7 +31,7 @@
     <record id="action_departamento_medular" model="ir.actions.act_window">
         <field name="name">Departamentos Medulares</field>
         <field name="res_model">proyelec.departamento.medular</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">tree,form</field>
         <field name="context">{"active_test": False}</field>
     </record>
 

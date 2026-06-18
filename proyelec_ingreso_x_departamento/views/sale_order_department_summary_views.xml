@@ -69,7 +69,7 @@
     <record id="action_dept_summary_report" model="ir.actions.act_window">
         <field name="name">Ingresos por Departamento</field>
         <field name="res_model">sale.order.department.summary</field>
-        <field name="view_mode">pivot,graph,list</field>
+        <field name="view_mode">pivot,graph,tree</field>
         <field name="context">{}</field>
     </record>
 
