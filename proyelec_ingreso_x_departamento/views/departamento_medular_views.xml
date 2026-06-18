@@ -4,11 +4,11 @@
         <field name="name">proyelec.departamento.medular.list</field>
         <field name="model">proyelec.departamento.medular</field>
         <field name="arch" type="xml">
-            <list string="Departamentos Medulares">
+            <tree string="Departamentos Medulares">
                 <field name="name"/>
                 <field name="code"/>
                 <field name="active"/>
-            </list>
+            </tree>
         </field>
     </record>
 

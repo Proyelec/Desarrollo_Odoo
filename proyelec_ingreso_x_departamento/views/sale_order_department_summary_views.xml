@@ -4,15 +4,15 @@
         <field name="name">sale.order.department.summary.list</field>
         <field name="model">sale.order.department.summary</field>
         <field name="arch" type="xml">
-            <list string="Ingresos por Departamento" create="0" delete="0">
+            <tree string="Ingresos por Departamento" create="0" delete="0">
                 <field name="fecha" string="Fecha"/>
                 <field name="sale_order_id" string="Pedido de Venta"/>
                 <field name="partner_id" string="Cliente"/>
                 <field name="departamento_id" string="Departamento"/>
-                <field name="currency_id" column_invisible="1"/>
+                <field name="currency_id" invisible="1"/>
                 <field name="total_venta" string="Total Venta"/>
                 <field name="porcentaje" string="% en el pedido"/>
-            </list>
+            </tree>
         </field>
     </record>
 
