@@ -81,16 +81,38 @@ proyelec_ingreso_x_departamento/
 
 ---
 
-### Checklist de prueba manual (pendiente)
+### Checklist de prueba manual (pendiente ejecución en AIT2)
+
+**Prerequisito para pruebas de confirmación**: `proyelec_so_to_po` exige ≥1 línea marcada como "Ganado" ANTES de confirmar. Si no, su error sale primero. Marcar Ganado en las líneas antes de intentar confirmar.
 
 - [ ] Instalar módulo → OPS/PCL creados automáticamente
 - [ ] Crear SO nueva → columna Depto. visible en líneas
-- [ ] Dejar línea sin depto., confirmar → UserError con nombres de líneas
-- [ ] Clasificar todas las líneas, confirmar → pasa
+- [ ] Dejar línea sin depto. (con ≥1 Ganado), confirmar → UserError listando líneas sin depto.
+- [ ] Clasificar todas las líneas (con ≥1 Ganado), confirmar → pasa
 - [ ] Editar SO confirmada (solo fecha entrega, todo clasificado) → pasa
-- [ ] SO OLD sin departamentos: guardar → exige clasificar 100%
+- [ ] SO OLD sin departamentos: editar desde formulario → UserError exige clasificar 100%
+- [ ] Confirmar entrega de SO OLD sin departamentos → NO debe bloquear (Odoo usa _write() para recompute de invoice_status)
+- [ ] Crear/postear factura de SO OLD sin departamentos → NO debe bloquear (misma razón)
 - [ ] Verificar que resumen muestra OPS/PCL con totales y porcentajes
 - [ ] Verificar reporte pivot en Sales > Reporting > Ingresos por Departamento
+
+---
+
+### Análisis del riesgo crítico (write() automático sobre SO vieja) — 2026-06-18
+
+**Conclusión: el riesgo NO materializa en Odoo 17.**
+
+**Razón técnica**: Cuando se confirma una entrega o se postea una factura, Odoo recomputa el campo stored `invoice_status` en `sale.order`. Este recompute usa `BaseModel._write()` (método privado), NO el método público `write()`. Los overrides de `write()` en modelos heredados solo interceptan el método público. Por tanto, nuestro `write()` override en `sale.order` **no es invocado** durante procesos automáticos de Odoo.
+
+Cadena exacta:
+```
+stock.picking._action_done()
+  → ORM marca invoice_status para recompute
+  → flush() → _recompute_model() → self.sudo()._write({'invoice_status': ...})
+                                                       ↑ método privado, no interceptado
+```
+
+El contexto bypass `skip_departamento_check` está disponible para agregar si alguna prueba real en AIT2 contradice este análisis. Si ocurre un bloqueo inesperado, identificar el método exacto que llama al `write()` público y agregar el bypass en ese punto.
 
 ---
 
@@ -101,3 +123,4 @@ proyelec_ingreso_x_departamento/
 - Vista embebida en one2many via `<list>` inline dentro del `<field>` en xpath — más limpio que referenciar xmlid
 - `decoration-warning` en `<tree>` debe excluir secciones/notas: `not departamento_id and not display_type`
 - Related stored fields (`fecha`, `partner_id`, `currency_id`) en summary se auto-calculan post-create — no pasarlos explícitamente al crear
+- **Odoo 17 ORM**: recompute de stored computed fields usa `_write()` (privado), no `write()` (público). Los overrides de `write()` en módulos custom NO son invocados por recomputes automáticos.
