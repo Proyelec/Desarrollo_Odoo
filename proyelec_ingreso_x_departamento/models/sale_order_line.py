@@ -20,6 +20,7 @@ class SaleOrderLine(models.Model):
             "discount",
             "tax_id",
             "product_id",
+            "x_studio_ganado",
         }
         if recompute_triggers.intersection(vals.keys()):
             self.mapped("order_id")._recompute_department_summary()

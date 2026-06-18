@@ -12,17 +12,10 @@
                 <attribute name="decoration-warning">not departamento_id and not display_type</attribute>
             </xpath>
 
-            <!-- Ocultar active_onchange (campo definido en l10n_ve_dual_currency_bs) -->
-            <xpath expr="//field[@name='order_line']//tree//field[@name='active_onchange']" position="attributes">
-                <attribute name="invisible">1</attribute>
-            </xpath>
-
-            <!-- Agregar departamento_id en el espacio de active_onchange -->
-            <xpath expr="//field[@name='order_line']//tree//field[@name='active_onchange']" position="after">
-                <field name="departamento_id"
-                       string="Depto."
-                       optional="show"
-                />
+            <!-- Reemplazar active_onchange: departamento_id queda en su lugar y active_onchange se oculta -->
+            <xpath expr="//field[@name='order_line']//tree//field[@name='active_onchange']" position="replace">
+                <field name="departamento_id" string="Depto." optional="show"/>
+                <field name="active_onchange" column_invisible="1"/>
             </xpath>
 
             <!-- Tabla resumen por departamento debajo de las líneas de pedido -->
