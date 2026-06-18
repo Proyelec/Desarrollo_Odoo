@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="departamento_ops" model="proyelec.departamento.medular">
+            <field name="name">OPS</field>
+            <field name="code">OPS</field>
+            <field name="active">True</field>
+        </record>
+        <record id="departamento_pcl" model="proyelec.departamento.medular">
+            <field name="name">PCL</field>
+            <field name="code">PCL</field>
+            <field name="active">True</field>
+        </record>
+    </data>
+</odoo>
