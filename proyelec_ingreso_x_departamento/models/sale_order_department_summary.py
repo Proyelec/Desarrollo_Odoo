@@ -31,6 +31,7 @@ class SaleOrderDepartmentSummary(models.Model):
     )
     porcentaje = fields.Float(
         string="% en este pedido",
+        group_operator=False,
     )
     # Stored for grouping in pivot/graph without joins
     fecha = fields.Datetime(

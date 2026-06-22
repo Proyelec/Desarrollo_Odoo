@@ -12,10 +12,14 @@
                 <attribute name="decoration-warning">not departamento_id and not display_type</attribute>
             </xpath>
 
-            <!-- Reemplazar active_onchange: departamento_id queda en su lugar y active_onchange se oculta -->
+            <!-- Ocultar active_onchange (no relevante para usuario) -->
             <xpath expr="//field[@name='order_line']//tree//field[@name='active_onchange']" position="replace">
-                <field name="departamento_id" string="Depto." optional="show"/>
                 <field name="active_onchange" column_invisible="1"/>
+            </xpath>
+
+            <!-- departamento_id antes de last_changed_field (Campo Modificado) -->
+            <xpath expr="//field[@name='order_line']//tree//field[@name='last_changed_field']" position="before">
+                <field name="departamento_id" string="Depto." optional="show"/>
             </xpath>
 
             <!-- Tabla resumen por departamento debajo de las líneas de pedido -->

@@ -1,5 +1,5 @@
-from odoo import models, fields
-from odoo.exceptions import UserError
+from odoo import api, models, fields
+from odoo.exceptions import ValidationError
 
 
 class SaleOrder(models.Model):
@@ -12,38 +12,28 @@ class SaleOrder(models.Model):
         readonly=True,
     )
 
-    def write(self, vals):
-        if not self.env.context.get("skip_departamento_check"):
-            confirming = vals.get("state") == "sale"
-            # Never validate when transitioning OUT of confirmed state (cancel, unlock→draft)
-            leaving_sale = vals.get("state") and vals.get("state") != "sale"
-            if not leaving_sale:
-                for order in self:
-                    if order.state == "sale" or confirming:
-                        unclassified = order.order_line.filtered(
-                            lambda l: not l.display_type and not l.departamento_id
-                        )
-                        if unclassified:
-                            names = []
-                            for line in unclassified:
-                                label = (
-                                    line.product_id.name
-                                    or line.name
-                                    or f"Línea #{line.sequence}"
-                                )
-                                names.append(label)
-                            raise UserError(
-                                "No se puede guardar el pedido en estado confirmado. "
-                                "Las siguientes líneas no tienen departamento asignado:\n\n"
-                                + "\n".join(f"• {n}" for n in names)
-                            )
-        return super().write(vals)
-
-    def action_unlock(self):
-        return super(
-            SaleOrder,
-            self.with_context(skip_departamento_check=True)
-        ).action_unlock()
+    @api.constrains('order_line', 'state')
+    def _check_departamento_lines(self):
+        for order in self:
+            if order.state != 'sale':
+                continue
+            unclassified = order.order_line.filtered(
+                lambda l: not l.display_type and not l.departamento_id
+            )
+            if unclassified:
+                names = []
+                for line in unclassified:
+                    label = (
+                        line.product_id.name
+                        or line.name
+                        or f"Línea #{line.sequence}"
+                    )
+                    names.append(label)
+                raise ValidationError(
+                    "No se puede guardar el pedido en estado confirmado. "
+                    "Las siguientes líneas no tienen departamento asignado:\n\n"
+                    + "\n".join(f"• {n}" for n in names)
+                )
 
     def _recompute_department_summary(self):
         """Recalcula resumen por departamento — solo líneas marcadas como Ganado."""
