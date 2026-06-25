@@ -1,7 +1,7 @@
 # proyelec_salas — Meeting Room Privacy Extension
 
 **Version:** 17.0.1.0.0  
-**Author:** Contables Boyer  
+**Author:** Juan David Villasmil — AIT Proyelec  
 **License:** LGPL-3  
 **Depends on:** `room`, `mail`, `web_gantt`
 
@@ -148,26 +148,6 @@ proyelec_salas/
 └── static/src/
     ├── room_booking_gantt_patch.js     # JS patch for Gantt popover
     └── room_booking_calendar_patch.js  # JS patch for Calendar popover
-```
-
----
-
-## Suggested Commit Messages
-
-When pushing this module to the repository, use the following commit messages:
-
-```
-[ADD] proyelec_salas: meeting room privacy and attendee management
-
-- Extend room.booking with is_private, attendee_ids, description fields
-- Override _compute_display_name to show 'Reservada' for unauthorized users
-- Add can_see_details computed field to control form field visibility
-- Add internal notification on booking create/update for attendees
-- Define Usuario and Lider/Gerencia security groups
-- Add record rule: users can only edit/delete own bookings
-- Patch GanttRenderer to hide Edit button for unauthorized users
-- Patch CalendarCommonPopover to hide Edit button for unauthorized users
-- Change default view mode to gantt,calendar,form
 ```
 
 ---
