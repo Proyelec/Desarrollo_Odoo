@@ -4,7 +4,7 @@
     'version': '17.0.1.0.0',
     'category': 'Productivity',
     'summary': 'Privacidad, asistentes y agenda para reservaciones de sala',
-    'author': 'Contables Boyer',
+    'author': 'Juan David Villasmil - AIT Proyelec',
     'depends': ['room', 'mail', 'web_gantt'],
     'data': [
         'security/proyelec_salas_groups.xml',

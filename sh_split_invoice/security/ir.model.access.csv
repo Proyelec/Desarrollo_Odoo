@@ -1,3 +1,0 @@
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_sh_split_invoice_wizard,access_sh_split_invoice_wizard,model_sh_split_invoice_wizard,base.group_user,1,1,1,1
-sh_split_invoice.access_sh_split_invoice_wizard_line,access_sh_split_invoice_wizard_line,sh_split_invoice.model_sh_split_invoice_wizard_line,base.group_user,1,1,1,1

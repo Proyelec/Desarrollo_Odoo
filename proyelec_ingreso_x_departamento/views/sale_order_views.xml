@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Herencia del formulario de pedido de venta -->
+    <record id="view_sale_order_form_ingreso_x_depto" model="ir.ui.view">
+        <field name="name">sale.order.form.ingreso.x.depto</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+
+            <!-- Agregar decoration-warning a líneas de producto sin departamento asignado -->
+            <xpath expr="//field[@name='order_line']//tree" position="attributes">
+                <attribute name="decoration-warning">not departamento_id and not display_type</attribute>
+            </xpath>
+
+            <!-- Ocultar active_onchange (no relevante para usuario) -->
+            <xpath expr="//field[@name='order_line']//tree//field[@name='active_onchange']" position="replace">
+                <field name="active_onchange" column_invisible="1"/>
+            </xpath>
+
+            <!-- departamento_id antes de last_changed_field (Campo Modificado) -->
+            <xpath expr="//field[@name='order_line']//tree//field[@name='last_changed_field']" position="before">
+                <field name="departamento_id" string="Depto." optional="show"/>
+            </xpath>
+
+            <!-- Tabla resumen por departamento debajo de las líneas de pedido -->
+            <xpath expr="//field[@name='order_line']" position="after">
+                <group string="Resumen por Departamento" name="dept_summary_group">
+                    <field name="sale_order_department_summary_ids"
+                           nolabel="1"
+                           colspan="2"
+                           readonly="1"
+                           invisible="not sale_order_department_summary_ids"
+                    >
+                        <tree create="0" delete="0" editable="0">
+                            <field name="departamento_id" string="Departamento"/>
+                            <field name="currency_id" invisible="1"/>
+                            <field name="total_venta" string="Total Venta"/>
+                            <field name="porcentaje" string="%"/>
+                        </tree>
+                    </field>
+                    <div class="text-muted fst-italic text-center py-2"
+                         colspan="2"
+                         invisible="sale_order_department_summary_ids">
+                        Pendiente de clasificar por departamento
+                    </div>
+                </group>
+            </xpath>
+
+        </field>
+    </record>
+
+</odoo>

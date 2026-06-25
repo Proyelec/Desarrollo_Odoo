@@ -11,7 +11,7 @@
         Ademas valida que el formato del codigo SNP sea correcto y advierte
         si el correlativo ingresado manualmente esta fuera de secuencia.
     """,
-    "author": "Proyelec / Contables Boyer",
+    "author": "Juan David Villasmil - AIT Proyelec",
     "license": "LGPL-3",
     "depends": [
         "product",

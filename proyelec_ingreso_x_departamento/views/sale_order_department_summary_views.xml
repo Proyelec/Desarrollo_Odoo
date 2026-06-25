@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dept_summary_list" model="ir.ui.view">
+        <field name="name">sale.order.department.summary.list</field>
+        <field name="model">sale.order.department.summary</field>
+        <field name="arch" type="xml">
+            <tree string="Ingresos por Departamento" create="0" delete="0">
+                <field name="sale_order_id" string="Pedido de Venta"/>
+                <field name="partner_id" string="Cliente"/>
+                <field name="fecha" string="Fecha"/>
+                <field name="departamento_id" string="Departamento"/>
+                <field name="currency_id" column_invisible="1"/>
+                <field name="total_venta" string="Total Venta"/>
+                <field name="porcentaje" string="% en este pedido"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_dept_summary_pivot" model="ir.ui.view">
+        <field name="name">sale.order.department.summary.pivot</field>
+        <field name="model">sale.order.department.summary</field>
+        <field name="arch" type="xml">
+            <pivot string="Ingresos por Departamento" disable_linking="True">
+                <field name="departamento_id" type="row"/>
+                <field name="fecha" interval="month" type="col"/>
+                <field name="total_venta" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_dept_summary_graph" model="ir.ui.view">
+        <field name="name">sale.order.department.summary.graph</field>
+        <field name="model">sale.order.department.summary</field>
+        <field name="arch" type="xml">
+            <graph string="Ingresos por Departamento" type="bar" stacked="True">
+                <field name="fecha" interval="month" type="row"/>
+                <field name="departamento_id" type="col"/>
+                <field name="total_venta" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="view_dept_summary_search" model="ir.ui.view">
+        <field name="name">sale.order.department.summary.search</field>
+        <field name="model">sale.order.department.summary</field>
+        <field name="arch" type="xml">
+            <search string="Ingresos por Departamento">
+                <field name="departamento_id" string="Departamento"/>
+                <field name="partner_id" string="Cliente"/>
+                <field name="sale_order_id" string="Pedido de Venta"/>
+                <filter name="filter_this_month" string="Este mes"
+                        domain="[
+                            ('fecha', '&gt;=', (context_today() + relativedelta(day=1)).strftime('%Y-%m-%d 00:00:00')),
+                            ('fecha', '&lt;', (context_today() + relativedelta(months=1, day=1)).strftime('%Y-%m-%d 00:00:00'))
+                        ]"/>
+                <filter name="filter_fecha" string="Por período" date="fecha"/>
+                <separator/>
+                <group expand="0" string="Agrupar por">
+                    <filter name="group_departamento" string="Departamento"
+                            context="{'group_by': 'departamento_id'}"/>
+                    <filter name="group_cliente" string="Cliente"
+                            context="{'group_by': 'partner_id'}"/>
+                    <filter name="group_mes" string="Mes"
+                            context="{'group_by': 'fecha:month'}"/>
+                    <filter name="group_trimestre" string="Trimestre"
+                            context="{'group_by': 'fecha:quarter'}"/>
+                    <filter name="group_año" string="Año"
+                            context="{'group_by': 'fecha:year'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_dept_summary_report" model="ir.actions.act_window">
+        <field name="name">Ingresos por Departamento</field>
+        <field name="res_model">sale.order.department.summary</field>
+        <field name="view_mode">tree,pivot,graph</field>
+        <field name="context">{
+            'search_default_filter_this_month': 1,
+            'search_default_group_departamento': 1
+        }</field>
+    </record>
+
+    <menuitem
+        id="menu_dept_summary_report"
+        name="Ingresos por Departamento"
+        parent="sale.menu_sale_report"
+        action="action_dept_summary_report"
+        groups="base.group_user"
+        sequence="50"
+    />
+</odoo>
